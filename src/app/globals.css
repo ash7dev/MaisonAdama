@@ -1,0 +1,337 @@
+/* =============================================================================
+   MAT · Maison Adama Tchurayy — Design system « Héritage »
+   Tailwind CSS v4 · src/app/globals.css
+   ============================================================================= */
+
+@import "tailwindcss";
+
+@theme {
+  /* ---------------------------------------------------------------------------
+     COULEURS — palette de marque
+     --------------------------------------------------------------------------- */
+  --color-sable: #F1E9DB;
+  /* fond principal du storefront */
+  --color-lin: #FAF5EC;
+  /* surfaces : cartes, formulaires, admin */
+  --color-paille: #E6D3AE;
+  /* badges, fonds d'accent doux */
+  --color-or: #B48A2C;
+  /* or MAT : accents, icônes, filets — jamais du texte courant */
+  --color-or-profond: #7E5E1C;
+  /* texte doré, liens (AA sur sable et lin) */
+  --color-or-clair: #D9B45E;
+  /* or sur fond oud : titres de sections, icônes, signature du footer */
+  --color-oud: #4A2E1C;
+  /* boutons primaires, éléments forts */
+  --color-oud-hover: #3A2316;
+  --color-sur-oud: #F1DDA8;
+  /* texte sur fond oud */
+  --color-encre: #2B1D12;
+  /* texte principal */
+  --color-fumee: #7A6653;
+  /* texte secondaire (AA sur sable et lin) */
+  --color-filet: #DCCBAE;
+  /* bordures, séparateurs */
+  --color-filet-fort: #C4AE8A;
+  /* bordures au survol, champs actifs */
+
+  /* États — accordés à la palette chaude */
+  --color-succes: #4F6B3A;
+  --color-succes-fond: #E4E8D4;
+  --color-alerte: #9A5B12;
+  --color-alerte-fond: #F3E2C3;
+  --color-erreur: #A3402E;
+  --color-erreur-fond: #F4DDD5;
+
+  /* ---------------------------------------------------------------------------
+     TYPOGRAPHIE
+     Marcellus : titres uniquement, jamais sous 20px.
+     Schibsted Grotesk : interface, texte, prix, formulaires.
+     --------------------------------------------------------------------------- */
+  --font-display: var(--font-marcellus), "Iowan Old Style", Georgia, serif;
+  --font-sans: var(--font-schibsted), ui-sans-serif, system-ui, sans-serif;
+
+  /* Échelle modulaire (~1.25), taille / interligne / approche */
+  --text-xs: 0.75rem;
+  /* 12 — mentions légales */
+  --text-xs--line-height: 1.4;
+  --text-sm: 0.8125rem;
+  /* 13 — méta, catégories */
+  --text-sm--line-height: 1.45;
+  --text-base: 1rem;
+  /* 16 — texte courant */
+  --text-base--line-height: 1.6;
+  --text-lg: 1.125rem;
+  /* 18 — chapeaux, prix */
+  --text-lg--line-height: 1.55;
+
+  --text-title-sm: 1.3125rem;
+  /* 21 — nom produit en carte */
+  --text-title-sm--line-height: 1.2;
+  --text-title-sm--letter-spacing: 0.01em;
+  --text-title-md: 1.625rem;
+  /* 26 — titres de blocs */
+  --text-title-md--line-height: 1.15;
+  --text-title-md--letter-spacing: 0.015em;
+  --text-title-lg: 2.25rem;
+  /* 36 — titres de sections */
+  --text-title-lg--line-height: 1.1;
+  --text-title-lg--letter-spacing: 0.02em;
+  --text-title-xl: 3rem;
+  /* 48 — fiche produit */
+  --text-title-xl--line-height: 1.05;
+  --text-title-xl--letter-spacing: 0.02em;
+  --text-display: 4.25rem;
+  /* 68 — hero */
+  --text-display--line-height: 1.02;
+  --text-display--letter-spacing: 0.015em;
+
+  /* ---------------------------------------------------------------------------
+     FORMES
+     --------------------------------------------------------------------------- */
+  --radius-sm: 6px;
+  /* champs de formulaire, chips */
+  --radius-md: 8px;
+  /* boutons, cartes */
+  --radius-lg: 12px;
+  /* visuels produits, modales */
+  --radius-full: 9999px;
+  /* badges, compteurs */
+
+  /* Ombres teintées encre, jamais grises */
+  --shadow-sm: 0 1px 2px rgb(43 29 18 / 0.06);
+  --shadow-md: 0 2px 4px rgb(43 29 18 / 0.04), 0 8px 24px rgb(43 29 18 / 0.08);
+  --shadow-lg: 0 4px 8px rgb(43 29 18 / 0.05), 0 20px 48px rgb(43 29 18 / 0.14);
+
+  /* ---------------------------------------------------------------------------
+     MOUVEMENT
+     --------------------------------------------------------------------------- */
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --duration-fast: 150ms;
+  /* survols, focus */
+  --duration-base: 250ms;
+  /* ouvertures, tiroir panier */
+  --duration-slow: 400ms;
+  /* transitions de page, galerie */
+
+  /* Badge panier : rebond discret quand un article est ajouté */
+  --animate-pop: pop 320ms var(--ease-out-soft);
+
+  @keyframes pop {
+    0% {
+      transform: scale(0.6);
+    }
+
+    60% {
+      transform: scale(1.15);
+    }
+
+    100% {
+      transform: scale(1);
+    }
+  }
+
+  /* Menu Boutique et recherche : apparition douce, légère descente */
+  --animate-reveal: reveal 250ms var(--ease-out-soft);
+
+  @keyframes reveal {
+    0% {
+      opacity: 0;
+      transform: translateY(-6px);
+    }
+
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Feuilles mobiles (filtres, contenances) : le fond apparaît, la feuille monte */
+  --animate-fade-in: fade-in 200ms ease-out;
+  --animate-sheet-up: sheet-up 300ms var(--ease-out-soft);
+
+  @keyframes fade-in {
+    0% {
+      opacity: 0;
+    }
+
+    100% {
+      opacity: 1;
+    }
+  }
+
+  @keyframes sheet-up {
+    0% {
+      transform: translateY(100%);
+    }
+
+    100% {
+      transform: translateY(0);
+    }
+  }
+
+  /* Skeleton : reflet lumineux qui traverse la forme pendant le chargement */
+  --animate-shimmer: shimmer 1.6s ease-in-out infinite;
+
+  @keyframes shimmer {
+    0% {
+      transform: translateX(-100%);
+    }
+
+    100% {
+      transform: translateX(100%);
+    }
+  }
+
+  /* Bandeau mobile : le message entre par le bas, le précédent sort par le haut */
+  --animate-ticker-in: ticker-in 600ms var(--ease-out-soft) both;
+  --animate-ticker-out: ticker-out 600ms var(--ease-out-soft) both;
+
+  @keyframes ticker-in {
+    0% {
+      opacity: 0;
+      transform: translateY(70%);
+      filter: blur(2px);
+    }
+
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+      filter: blur(0);
+    }
+  }
+
+  @keyframes ticker-out {
+    0% {
+      opacity: 1;
+      transform: translateY(0);
+      filter: blur(0);
+    }
+
+    100% {
+      opacity: 0;
+      transform: translateY(-70%);
+      filter: blur(2px);
+    }
+  }
+
+  /* Indicateur du bandeau : remplissage pendant l'affichage du message */
+  --animate-ticker-progress: ticker-progress var(--ticker-delay, 4500ms) linear both;
+
+  @keyframes ticker-progress {
+    0% {
+      transform: scaleX(0);
+    }
+
+    100% {
+      transform: scaleX(1);
+    }
+  }
+
+  /* ---------------------------------------------------------------------------
+     MISE EN PAGE
+     L'espacement Tailwind (base 4px) est conservé tel quel.
+     --------------------------------------------------------------------------- */
+  --container-shop: 80rem;
+  --container-prose: 40rem;
+  --width-shop: 80rem;
+  --width-prose: 40rem;
+}
+
+/* =============================================================================
+   BASE
+   ============================================================================= */
+
+@layer base {
+  html {
+    color-scheme: light;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-sable);
+    color: var(--color-encre);
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    line-height: var(--text-base--line-height);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: "kern", "liga";
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    font-weight: 400;
+    /* Marcellus n'a qu'une graisse : la hiérarchie vient de la taille */
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  ::selection {
+    background-color: var(--color-paille);
+    color: var(--color-encre);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-or);
+    outline-offset: 3px;
+    border-radius: var(--radius-sm);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* =============================================================================
+   UTILITAIRES DE MARQUE
+   ============================================================================= */
+
+/* Prix : chiffres alignés, lisibles, jamais en Marcellus */
+@utility price {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums lining-nums;
+  letter-spacing: -0.005em;
+}
+
+/* Prix barré d'une promotion */
+@utility price-struck {
+  font-family: var(--font-sans);
+  font-weight: 400;
+  color: var(--color-fumee);
+  text-decoration: line-through;
+  text-decoration-color: var(--color-filet-fort);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Filet doré fin, séparateur de marque */
+@utility rule-or {
+  height: 1px;
+  border: 0;
+  background-color: var(--color-or);
+  opacity: 0.5;
+}
+/*
+ * Pages « sans habillage » sur mobile (fiche produit) : la page pose un repère
+ * [data-mobile-chromeless] et la barre d'annonce + l'en-tête s'effacent, en CSS
+ * pur, dès le rendu serveur (aucun clignotement). Desktop inchangé.
+ */
+@media (max-width: 1023.98px) {
+  body:has([data-mobile-chromeless]) [data-site-chrome] {
+    display: none;
+  }
+}

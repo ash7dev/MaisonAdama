@@ -1,0 +1,615 @@
+// =============================================================================
+//  Maison Adama — Schéma Prisma
+//  PostgreSQL (Supabase) · Prisma · Next.js
+//
+//  Conventions :
+//  - Identifiants UUID v7 générés PAR LA BASE (uuid_generate_v7()) : ordonnés dans
+//    le temps, disponibles aussi pour les triggers et fonctions SQL.
+//  - Tables et colonnes en snake_case côté base (@@map / @map).
+//  - Montants en entiers FCFA (le XOF n'a pas de centimes).
+//  - Dates en timestamptz(3).
+//
+//  Ce fichier ne décrit que la STRUCTURE. Les invariants métier (CHECK, triggers,
+//  index partiels, RLS) vivent dans prisma/migrations et sont listés dans
+//  docs/data-model.md. Les objets SQL protégés sont vérifiés par
+//  `npm run db:guard` avant chaque nouvelle migration.
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+  // Relations chargées en UNE requête SQL (jointures) plutôt qu'une par relation :
+  // chaque aller-retour vers la base coûte ~80 ms depuis Dakar.
+  previewFeatures = ["relationJoins"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // Supabase pooler (port 6543, ?pgbouncer=true)
+  directUrl = env("DIRECT_URL") // Connexion directe (port 5432) pour les migrations
+}
+
+// =============================================================================
+//  ENUMS
+// =============================================================================
+
+enum Gender {
+  HOMME
+  FEMME
+  UNISEXE
+
+  @@map("gender")
+}
+
+enum Concentration {
+  EAU_DE_TOILETTE
+  EAU_DE_PARFUM
+  EXTRAIT
+
+  @@map("concentration")
+}
+
+enum VariantUnit {
+  ML
+  G
+  UNITE
+
+  @@map("variant_unit")
+}
+
+enum PromotionType {
+  POURCENTAGE
+  MONTANT_FIXE
+
+  @@map("promotion_type")
+}
+
+enum StockMovementType {
+  REASSORT
+  VENTE
+  ANNULATION
+  AJUSTEMENT
+
+  @@map("stock_movement_type")
+}
+
+enum OrderStatus {
+  EN_ATTENTE
+  CONFIRMEE
+  EN_LIVRAISON
+  LIVREE
+  ANNULEE
+
+  @@map("order_status")
+}
+
+enum PaymentStatus {
+  NON_PAYE
+  PAYE
+  REMBOURSE
+
+  @@map("payment_status")
+}
+
+enum PaymentMethod {
+  WAVE
+  A_LA_LIVRAISON
+
+  @@map("payment_method")
+}
+
+enum AdminRole {
+  OWNER
+  STAFF
+
+  @@map("admin_role")
+}
+
+enum AuditAction {
+  INSERT
+  UPDATE
+  DELETE
+
+  @@map("audit_action")
+}
+
+// =============================================================================
+//  CATALOGUE
+// =============================================================================
+
+/// Catégorie principale : Parfums, Muscs, Huiles, Oud, Encens.
+/// parentId prévu pour des sous-catégories futures, non utilisé au MVP.
+model Category {
+  id               String   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  name             String   @db.VarChar(80)
+  slug             String   @unique @db.VarChar(100)
+  description      String?  @db.Text
+  parentId         String?  @map("parent_id") @db.Uuid
+  /// Autorise le champ Product.concentration (vrai pour « Parfums » uniquement).
+  hasConcentration Boolean  @default(false) @map("has_concentration")
+  position         Int      @default(0)
+  isActive         Boolean  @default(true) @map("is_active")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children Category[] @relation("CategoryTree")
+  products Product[]
+
+  @@index([parentId])
+  @@index([isActive, position])
+  @@map("categories")
+}
+
+/// Marque (optionnelle sur le produit : un musc artisanal n'en a pas).
+model Brand {
+  id        String   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  name      String   @db.VarChar(80)
+  slug      String   @unique @db.VarChar(100)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  products Product[]
+
+  @@index([isActive, name])
+  @@map("brands")
+}
+
+/// Recherche : index trigram sur immutable_unaccent(nom + mots-clés), défini en SQL
+/// (products_search_trgm_idx) — "epice" trouve "Épicé", "bakhour" trouve l'encens.
+model Product {
+  id               String         @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  name             String         @db.VarChar(160)
+  slug             String         @unique @db.VarChar(180)
+  shortDescription String?        @map("short_description") @db.VarChar(300)
+  description      String?        @db.Text
+  categoryId       String         @map("category_id") @db.Uuid
+  brandId          String?        @map("brand_id") @db.Uuid
+  gender           Gender?
+  /// Autorisé seulement si category.hasConcentration (garanti par trigger).
+  concentration    Concentration?
+  /// Synonymes de recherche : "thiouraye", "bakhour"…
+  searchKeywords   String[]       @default([]) @map("search_keywords")
+  seoTitle         String?        @map("seo_title") @db.VarChar(70)
+  seoDescription   String?        @map("seo_description") @db.VarChar(160)
+  /// Publié ⇒ au moins une variante active (garanti par trigger différé).
+  isPublished      Boolean        @default(false) @map("is_published")
+  isArchived       Boolean        @default(false) @map("is_archived")
+  publishedAt      DateTime?      @map("published_at") @db.Timestamptz(3)
+  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  category          Category                 @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  brand             Brand?                   @relation(fields: [brandId], references: [id], onDelete: Restrict)
+  variants          ProductVariant[]
+  images            ProductImage[]
+  olfactoryFamilies ProductOlfactoryFamily[]
+  collections       ProductCollection[]
+  promotionTargets  PromotionTarget[]
+  orderItems        OrderItem[]
+
+  @@index([categoryId, isPublished, isArchived])
+  @@index([brandId])
+  @@index([gender])
+  @@index([publishedAt(sort: Desc)])
+  @@map("products")
+}
+
+model ProductImage {
+  id          String   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  productId   String   @map("product_id") @db.Uuid
+  /// Chemin dans le bucket Supabase Storage (pas l'URL complète).
+  storagePath String   @map("storage_path") @db.VarChar(500)
+  alt         String?  @db.VarChar(200)
+  width       Int?
+  height      Int?
+  position    Int      @default(0)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, position])
+  @@map("product_images")
+}
+
+/// Une contenance vendable : prix + stock.
+/// Le stock ne se modifie QUE via la fonction SQL move_stock() (garanti par trigger) :
+/// stock = Σ stock_movements.quantity à tout instant.
+model ProductVariant {
+  id                String      @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  productId         String      @map("product_id") @db.Uuid
+  size              Decimal     @db.Decimal(8, 2)
+  unit              VariantUnit
+  /// Texte affiché : "50 ml", "Pot 100 g"
+  label             String      @db.VarChar(40)
+  /// Prix en FCFA (> 0)
+  price             Int
+  stock             Int         @default(0)
+  lowStockThreshold Int         @default(3) @map("low_stock_threshold")
+  sku               String?     @unique @db.VarChar(64)
+  position          Int         @default(0)
+  isActive          Boolean     @default(true) @map("is_active")
+  createdAt         DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  product          Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
+  promotionTargets PromotionTarget[]
+  stockMovements   StockMovement[]
+  orderItems       OrderItem[]
+
+  /// Cible de la clé étrangère composite order_items(variant_id, product_id).
+  @@unique([id, productId])
+  @@unique([productId, size, unit])
+  @@index([productId, position])
+  @@index([price])
+  @@map("product_variants")
+}
+
+model OlfactoryFamily {
+  id       String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  name     String @unique @db.VarChar(60)
+  slug     String @unique @db.VarChar(80)
+  position Int    @default(0)
+
+  products ProductOlfactoryFamily[]
+
+  @@map("olfactory_families")
+}
+
+/// Jointure produit ↔ famille olfactive.
+/// PK (product_id, family_id) couvre "familles d'un produit" ;
+/// l'index sur family_id couvre le filtre "produits d'une famille".
+model ProductOlfactoryFamily {
+  productId String @map("product_id") @db.Uuid
+  familyId  String @map("family_id") @db.Uuid
+
+  product Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  family  OlfactoryFamily @relation(fields: [familyId], references: [id], onDelete: Cascade)
+
+  @@id([productId, familyId])
+  @@index([familyId, productId])
+  @@map("product_olfactory_families")
+}
+
+/// Mise en avant commerciale : Nouveautés, Best-sellers, Tabaski…
+model Collection {
+  id          String   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  name        String   @db.VarChar(80)
+  slug        String   @unique @db.VarChar(100)
+  description String?  @db.Text
+  position    Int      @default(0)
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  products ProductCollection[]
+
+  @@index([isActive, position])
+  @@map("collections")
+}
+
+/// PK orientée collection (lecture la plus fréquente : produits d'une collection).
+model ProductCollection {
+  collectionId String @map("collection_id") @db.Uuid
+  productId    String @map("product_id") @db.Uuid
+  position     Int    @default(0)
+
+  collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  product    Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([collectionId, productId])
+  @@index([collectionId, position])
+  @@index([productId])
+  @@map("product_collections")
+}
+
+// =============================================================================
+//  PROMOTIONS
+// =============================================================================
+
+/// Règle : la promotion la plus avantageuse pour le client gagne, sans cumul.
+/// Une promotion déjà utilisée par une commande ne se supprime pas : on la désactive.
+model Promotion {
+  id        String        @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  name      String        @db.VarChar(120)
+  type      PromotionType
+  /// Pourcentage (1–100) ou montant FCFA selon le type
+  value     Int
+  startsAt  DateTime      @map("starts_at") @db.Timestamptz(3)
+  endsAt    DateTime      @map("ends_at") @db.Timestamptz(3)
+  isActive  Boolean       @default(true) @map("is_active")
+  /// V2 : codes promo. Null = promotion automatique.
+  code      String?       @unique @db.VarChar(40)
+  createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  targets    PromotionTarget[]
+  orderItems OrderItem[]
+
+  @@index([isActive, startsAt, endsAt])
+  @@map("promotions")
+}
+
+/// Cible d'une promotion : un produit (toutes ses variantes) XOR une variante.
+/// Le XOR est garanti par une contrainte CHECK en base.
+model PromotionTarget {
+  id          String  @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  promotionId String  @map("promotion_id") @db.Uuid
+  productId   String? @map("product_id") @db.Uuid
+  variantId   String? @map("variant_id") @db.Uuid
+
+  promotion Promotion       @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+  product   Product?        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant   ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@unique([promotionId, productId])
+  @@unique([promotionId, variantId])
+  @@index([productId])
+  @@index([variantId])
+  @@map("promotion_targets")
+}
+
+// =============================================================================
+//  STOCK
+// =============================================================================
+
+/// Journal immuable (UPDATE/DELETE interdits par trigger) de tous les mouvements.
+/// Écrit exclusivement par la fonction SQL move_stock().
+model StockMovement {
+  id         String            @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  variantId  String            @map("variant_id") @db.Uuid
+  type       StockMovementType
+  /// Signé : +10 pour un réassort, -2 pour une vente
+  quantity   Int
+  /// Stock résultant après ce mouvement
+  stockAfter Int               @map("stock_after")
+  orderId    String?           @map("order_id") @db.Uuid
+  adminId    String?           @map("admin_id") @db.Uuid
+  note       String?           @db.VarChar(300)
+  createdAt  DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  variant ProductVariant @relation(fields: [variantId], references: [id], onDelete: Restrict)
+  order   Order?         @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  admin   AdminProfile?  @relation(fields: [adminId], references: [id], onDelete: Restrict)
+
+  @@index([variantId, createdAt(sort: Desc)])
+  @@index([orderId])
+  @@index([adminId])
+  @@index([type, createdAt(sort: Desc)])
+  @@map("stock_movements")
+}
+
+// =============================================================================
+//  CLIENTS & LIVRAISON
+// =============================================================================
+
+/// Client invité, identifié par son téléphone normalisé (+221XXXXXXXXX).
+/// Recherche par nom : index trigram sans accents défini en SQL (customers_search_trgm_idx).
+model Customer {
+  id        String   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  name      String   @db.VarChar(120)
+  phone     String   @unique @db.VarChar(20)
+  /// Facultatif, saisi au checkout (dernière adresse connue)
+  email     String?  @db.VarChar(160)
+  /// Note interne visible uniquement par l'admin
+  adminNote String?  @map("admin_note") @db.Text
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  orders Order[]
+
+  @@index([createdAt(sort: Desc)])
+  @@map("customers")
+}
+
+model DeliveryZone {
+  id             String   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  name           String   @unique @db.VarChar(80)
+  region         String   @db.VarChar(80)
+  /// Frais par défaut en FCFA, ajustables commande par commande
+  defaultFee     Int      @map("default_fee")
+  /// Affichage client : "24 h", "48–72 h"
+  estimatedDelay String?  @map("estimated_delay") @db.VarChar(40)
+  position       Int      @default(0)
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  orders Order[]
+
+  @@index([isActive, position])
+  @@map("delivery_zones")
+}
+
+// =============================================================================
+//  COMMANDES
+// =============================================================================
+
+/// Montants (garantis par CHECK + trigger différé au COMMIT) :
+///   subtotal       = Σ unit_price × quantity        (brut)
+///   discount_total = Σ unit_discount × quantity
+///   total          = subtotal − discount_total + delivery_fee
+///
+/// Statuts : transitions contrôlées par trigger, historique écrit automatiquement
+/// dans order_status_history. Stock : chaque ligne a exactement un mouvement VENTE,
+/// et un mouvement ANNULATION si et seulement si la commande est annulée.
+model Order {
+  id             String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  /// CMD-2026-00123, généré par une séquence PostgreSQL
+  orderNumber    String @unique @default(dbgenerated("('CMD-' || to_char(now(), 'YYYY') || '-' || lpad(nextval('order_number_seq')::text, 5, '0'))")) @map("order_number") @db.VarChar(20)
+  /// Clé fournie par le navigateur : un double clic ne crée pas deux commandes.
+  idempotencyKey String @unique @map("idempotency_key") @db.Uuid
+  /// Jeton non devinable pour la page de confirmation (/commande/[publicToken]).
+  publicToken    String @unique @default(dbgenerated("replace((gen_random_uuid())::text, '-', '')")) @map("public_token") @db.VarChar(32)
+  customerId     String @map("customer_id") @db.Uuid
+
+  status               OrderStatus   @default(EN_ATTENTE)
+  paymentStatus        PaymentStatus @default(NON_PAYE) @map("payment_status")
+  paymentMethod        PaymentMethod @map("payment_method")
+  /// Numéro Wave ou ID de transaction saisi par le client (optionnel)
+  paymentReference     String?       @map("payment_reference") @db.VarChar(80)
+  paidAt               DateTime?     @map("paid_at") @db.Timestamptz(3)
+  /// Admin qui a constaté l'encaissement (Wave Business ou retour du livreur)
+  paymentConfirmedById String?       @map("payment_confirmed_by") @db.Uuid
+  refundedAt           DateTime?     @map("refunded_at") @db.Timestamptz(3)
+
+  // --- Snapshot client ---
+  customerName  String @map("customer_name") @db.VarChar(120)
+  customerPhone String @map("customer_phone") @db.VarChar(20)
+  /// Facultatif, tel que saisi au checkout
+  customerEmail String? @map("customer_email") @db.VarChar(160)
+
+  // --- Snapshot livraison ---
+  deliveryZoneId     String  @map("delivery_zone_id") @db.Uuid
+  zoneName           String  @map("zone_name") @db.VarChar(80)
+  /// Tarif de la zone au moment de l'achat (jamais modifié)
+  defaultDeliveryFee Int     @map("default_delivery_fee")
+  /// Frais réellement facturés ; s'ils diffèrent du tarif, deliveryFeeNote est obligatoire
+  deliveryFee        Int     @map("delivery_fee")
+  deliveryFeeNote    String? @map("delivery_fee_note") @db.VarChar(300)
+  region             String  @db.VarChar(80)
+  city               String  @db.VarChar(80)
+  address            String  @db.VarChar(255)
+  landmark           String? @db.VarChar(255)
+  customerNote       String? @map("customer_note") @db.Text
+
+  // --- Montants FCFA ---
+  subtotal      Int
+  discountTotal Int @default(0) @map("discount_total")
+  total         Int
+
+  // --- Jalons (statistiques, délais) ---
+  confirmedAt  DateTime? @map("confirmed_at") @db.Timestamptz(3)
+  shippedAt    DateTime? @map("shipped_at") @db.Timestamptz(3)
+  deliveredAt  DateTime? @map("delivered_at") @db.Timestamptz(3)
+  cancelledAt  DateTime? @map("cancelled_at") @db.Timestamptz(3)
+  cancelReason String?   @map("cancel_reason") @db.VarChar(300)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  customer           Customer             @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  deliveryZone       DeliveryZone         @relation(fields: [deliveryZoneId], references: [id], onDelete: Restrict)
+  paymentConfirmedBy AdminProfile?        @relation("PaymentConfirmedBy", fields: [paymentConfirmedById], references: [id], onDelete: Restrict)
+  items              OrderItem[]
+  statusHistory      OrderStatusHistory[]
+  stockMovements     StockMovement[]
+
+  @@index([status, createdAt(sort: Desc)])
+  @@index([paymentStatus, paymentMethod])
+  @@index([customerId, createdAt(sort: Desc)])
+  @@index([deliveryZoneId])
+  @@index([paymentConfirmedById])
+  @@index([createdAt(sort: Desc)])
+  @@map("orders")
+}
+
+/// Ligne de commande : toutes les valeurs sont figées au moment de l'achat
+/// (UPDATE/DELETE interdits par trigger). Une seule ligne par variante et par commande.
+/// La FK composite (variant_id, product_id) garantit que la variante appartient bien
+/// au produit dénormalisé (statistiques « top produits » sans jointure).
+model OrderItem {
+  id            String  @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  orderId       String  @map("order_id") @db.Uuid
+  variantId     String  @map("variant_id") @db.Uuid
+  productId     String  @map("product_id") @db.Uuid
+  /// Promotion appliquée (null si aucune) + nom figé pour l'historique
+  promotionId   String? @map("promotion_id") @db.Uuid
+  promotionName String? @map("promotion_name") @db.VarChar(120)
+
+  productName  String @map("product_name") @db.VarChar(160)
+  variantLabel String @map("variant_label") @db.VarChar(40)
+  unitPrice    Int    @map("unit_price")
+  unitDiscount Int    @default(0) @map("unit_discount")
+  quantity     Int
+  lineTotal    Int    @map("line_total")
+
+  order     Order          @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  variant   ProductVariant @relation(fields: [variantId, productId], references: [id, productId], onDelete: Restrict)
+  product   Product        @relation(fields: [productId], references: [id], onDelete: Restrict)
+  promotion Promotion?     @relation(fields: [promotionId], references: [id], onDelete: Restrict)
+
+  @@unique([orderId, variantId])
+  @@index([variantId, productId])
+  @@index([productId])
+  @@index([promotionId])
+  @@map("order_items")
+}
+
+/// Audit : qui a changé quel statut, et quand. Écrit par trigger, immuable.
+model OrderStatusHistory {
+  id         String       @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  orderId    String       @map("order_id") @db.Uuid
+  fromStatus OrderStatus? @map("from_status")
+  toStatus   OrderStatus  @map("to_status")
+  adminId    String?      @map("admin_id") @db.Uuid
+  note       String?      @db.VarChar(300)
+  createdAt  DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  order Order         @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  admin AdminProfile? @relation(fields: [adminId], references: [id], onDelete: Restrict)
+
+  @@index([orderId, createdAt])
+  @@index([adminId])
+  @@map("order_status_history")
+}
+
+// =============================================================================
+//  ADMINISTRATION
+// =============================================================================
+
+/// Ligne unique (id = 1, garanti par CHECK).
+model StoreSettings {
+  id               Int      @id @default(1)
+  storeName        String   @map("store_name") @db.VarChar(120)
+  waveMerchantCode String?  @map("wave_merchant_code") @db.VarChar(40)
+  /// Chemin Storage du QR code Wave
+  waveQrImagePath  String?  @map("wave_qr_image_path") @db.VarChar(500)
+  whatsappNumber   String?  @map("whatsapp_number") @db.VarChar(20)
+  contactPhone     String?  @map("contact_phone") @db.VarChar(20)
+  contactEmail     String?  @map("contact_email") @db.VarChar(120)
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("store_settings")
+}
+
+/// id = auth.users.id (clé étrangère vers Supabase Auth ajoutée en SQL).
+/// Un admin ayant un historique ne se supprime pas : isActive = false
+/// (et bannir l'utilisateur dans Supabase Auth).
+model AdminProfile {
+  id        String    @id @db.Uuid
+  fullName  String    @map("full_name") @db.VarChar(120)
+  role      AdminRole @default(OWNER)
+  isActive  Boolean   @default(true) @map("is_active")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  stockMovements    StockMovement[]
+  statusChanges     OrderStatusHistory[]
+  paymentsConfirmed Order[]              @relation("PaymentConfirmedBy")
+  auditLogs         AuditLog[]
+
+  @@map("admin_profiles")
+}
+
+/// Journal d'audit générique, alimenté par trigger (catalogue, prix, promotions,
+/// zones, paramètres, commandes, clients). Pour une mise à jour, seules les
+/// colonnes modifiées sont stockées. L'admin est lu dans le réglage de session
+/// app.admin_id (voir src/lib/db-context.ts). Immuable.
+model AuditLog {
+  id        String      @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  tableName String      @map("table_name") @db.VarChar(63)
+  recordId  String      @map("record_id") @db.VarChar(64)
+  action    AuditAction
+  oldData   Json?       @map("old_data")
+  newData   Json?       @map("new_data")
+  adminId   String?     @map("admin_id") @db.Uuid
+  createdAt DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  admin AdminProfile? @relation(fields: [adminId], references: [id], onDelete: Restrict)
+
+  @@index([tableName, recordId, createdAt(sort: Desc)])
+  @@index([adminId, createdAt(sort: Desc)])
+  @@index([createdAt(sort: Desc)])
+  @@map("audit_logs")
+}
