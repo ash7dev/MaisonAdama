@@ -23,12 +23,15 @@ const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI'];
 
 export function CollectionHero({
   index,
+  kicker,
   title,
   story,
   meta,
   aside,
 }: {
   index: string;
+  /** Surtitre ; par défaut « Collection N°xx ». */
+  kicker?: string;
   title: string;
   story: string;
   meta?: React.ReactNode;
@@ -48,7 +51,7 @@ export function CollectionHero({
         <div className="flex min-w-0 flex-col gap-5">
           <p className="flex items-center gap-3 text-[0.75rem] font-semibold uppercase tracking-[0.22em] text-or-clair">
             <span aria-hidden="true" className="h-px w-8 bg-or-clair/60" />
-            Collection N°{index}
+            {kicker ?? `Collection N°${index}`}
           </p>
           <h1 className="text-[2.75rem] leading-[0.95] lg:text-[5rem]">{title}</h1>
           <p className="max-w-xl text-[0.9375rem] leading-relaxed text-sur-oud/75 lg:text-[1.0625rem]">{story}</p>

@@ -1,11 +1,17 @@
 // src/components/layout/SearchDialog.tsx
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, ArrowRight, Search } from 'lucide-react';
+import { ArrowLeft, ArrowRight, LoaderCircle, Search } from 'lucide-react';
+import { formatFCFA } from '@/lib/money';
+import { searchSuggestionsAction, type SearchSuggestion } from '@/features/shop/actions';
+import ProductVisual from '@/features/shop/components/ProductVisual';
 import { POPULAR_SEARCHES, SHOP_CATEGORIES } from './nav-config';
+
+const searchHref = (q: string) => `/boutique?q=${encodeURIComponent(q)}`;
+type Results = { q: string; total: number; items: SearchSuggestion[] };
 
 type SearchDialogProps = {
   open: boolean;
@@ -19,6 +25,29 @@ type SearchDialogProps = {
 export default function SearchDialog({ open, onClose }: SearchDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const router = useRouter();
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<Results | null>(null);
+  const [pending, startTransition] = useTransition();
+  const request = useRef(0);
+  const trimmed = query.trim();
+  const typing = trimmed.length >= 2;
+
+  // Suggestions pendant la frappe : 180 ms de pause, seule la dernière réponse compte.
+  useEffect(() => {
+    if (!typing) {
+      request.current++;
+      setResults(null);
+      return;
+    }
+    const id = ++request.current;
+    const timer = setTimeout(() => {
+      startTransition(async () => {
+        const r = await searchSuggestionsAction(trimmed);
+        if (id === request.current) setResults({ q: trimmed, ...r });
+      });
+    }, 180);
+    return () => clearTimeout(timer);
+  }, [trimmed, typing]);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -35,10 +64,9 @@ export default function SearchDialog({ open, onClose }: SearchDialogProps) {
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const query = new FormData(event.currentTarget).get('q')?.toString().trim();
-    if (!query) return;
+    if (!trimmed) return;
     onClose();
-    router.push(`/recherche?q=${encodeURIComponent(query)}`);
+    router.push(searchHref(trimmed));
   };
 
   return (
@@ -63,7 +91,11 @@ export default function SearchDialog({ open, onClose }: SearchDialogProps) {
         >
           <ArrowLeft className="size-5" strokeWidth={1.7} aria-hidden="true" />
         </button>
-        <Search className="hidden size-[22px] shrink-0 text-or-profond lg:block" strokeWidth={1.6} aria-hidden="true" />
+        {pending ? (
+          <LoaderCircle className="hidden size-[22px] shrink-0 animate-spin text-or-profond lg:block" strokeWidth={1.6} aria-hidden="true" />
+        ) : (
+          <Search className="hidden size-[22px] shrink-0 text-or-profond lg:block" strokeWidth={1.6} aria-hidden="true" />
+        )}
         <label htmlFor="site-search" className="sr-only">
           Rechercher un produit
         </label>
@@ -73,6 +105,9 @@ export default function SearchDialog({ open, onClose }: SearchDialogProps) {
           type="search"
           autoFocus
           autoComplete="off"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          aria-controls="search-results"
           enterKeyHint="search"
           placeholder="Parfum, musc, thiouraye…"
           className="h-11 min-w-0 flex-1 bg-transparent font-display text-[1.25rem] text-encre outline-none placeholder:text-fumee/70 lg:text-[1.5rem]"
@@ -87,13 +122,85 @@ export default function SearchDialog({ open, onClose }: SearchDialogProps) {
       </form>
 
       <div className="grid gap-8 px-5 pb-8 pt-7 lg:grid-cols-2 lg:px-7 lg:pt-6">
+        {typing ? (
+          <section id="search-results" aria-live="polite" aria-busy={pending} className="flex min-h-[12rem] flex-col gap-2">
+            <h2 className="mb-1 flex items-center gap-2 font-sans text-[0.71875rem] font-normal tracking-[0.24em] text-or-profond">
+              CRÉATIONS
+              {pending && <LoaderCircle className="size-3.5 animate-spin lg:hidden" strokeWidth={2} aria-hidden="true" />}
+            </h2>
+            {results && results.items.length > 0 ? (
+              <>
+                <ul className="flex flex-col">
+                  {results.items.map((p) => (
+                    <li key={p.id}>
+                      <Link
+                        href={`/produits/${p.slug}`}
+                        onClick={onClose}
+                        className="flex items-center gap-3.5 rounded-2xl p-2 transition-colors duration-150 hover:bg-sable"
+                      >
+                        <ProductVisual
+                          image={p.image}
+                          name={p.name}
+                          categorySlug={p.categorySlug}
+                          seed={p.id}
+                          sizes="56px"
+                          className="h-[4.25rem] w-14 shrink-0 rounded-xl"
+                        />
+                        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                          <span className="truncate font-display text-[1.0625rem] text-encre">{p.name}</span>
+                          <span className="text-xs text-fumee">
+                            {p.categoryName}
+                            {!p.inStock && ' · épuisé'}
+                          </span>
+                        </span>
+                        <span className="flex shrink-0 flex-col items-end whitespace-nowrap text-sm">
+                          <strong className={p.bestPercent ? 'text-erreur' : 'text-encre'}>
+                            {p.hasRange && <span className="font-normal text-fumee">dès </span>}
+                            {formatFCFA(p.fromPrice)}
+                          </strong>
+                          {p.bestPercent ? <span className="text-xs font-semibold text-erreur">−{p.bestPercent}&nbsp;%</span> : null}
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+                <Link
+                  href={searchHref(results.q)}
+                  onClick={onClose}
+                  className="mt-1 flex h-12 items-center justify-between rounded-full bg-oud pl-5 pr-2 text-sm font-semibold text-sur-oud transition-colors duration-150 hover:bg-encre"
+                >
+                  Voir {results.total > 1 ? `les ${results.total} résultats` : 'le résultat'}
+                  <span className="grid size-9 place-items-center rounded-full bg-sur-oud text-oud">
+                    <ArrowRight className="size-4" strokeWidth={2} aria-hidden="true" />
+                  </span>
+                </Link>
+              </>
+            ) : results && !pending ? (
+              <p className="rounded-2xl bg-sable px-4 py-5 text-sm leading-relaxed text-fumee">
+                Aucune création pour <strong className="text-encre">« {results.q} »</strong>. Essayez un mot plus court, ou parcourez un univers.
+              </p>
+            ) : (
+              <ul aria-hidden="true" className="flex flex-col gap-2">
+                {[0, 1, 2].map((i) => (
+                  <li key={i} className="flex items-center gap-3.5 p-2">
+                    <span className="h-[4.25rem] w-14 animate-pulse rounded-xl bg-sable" />
+                    <span className="flex flex-1 flex-col gap-2">
+                      <span className="h-4 w-2/3 animate-pulse rounded-full bg-sable" />
+                      <span className="h-3 w-1/3 animate-pulse rounded-full bg-sable" />
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        ) : (
         <section className="flex flex-col gap-3.5">
           <h2 className="font-sans text-[0.71875rem] font-normal tracking-[0.24em] text-or-profond">RECHERCHES FRÉQUENTES</h2>
           <ul className="flex flex-wrap gap-2">
             {POPULAR_SEARCHES.map((term) => (
               <li key={term}>
                 <Link
-                  href={`/recherche?q=${encodeURIComponent(term)}`}
+                  href={searchHref(term)}
                   onClick={onClose}
                   className="flex h-11 items-center rounded-full border border-filet px-4 text-sm text-oud transition-colors duration-150 hover:border-filet-fort hover:bg-sable lg:h-10"
                 >
@@ -103,6 +210,7 @@ export default function SearchDialog({ open, onClose }: SearchDialogProps) {
             ))}
           </ul>
         </section>
+        )}
 
         <section className="flex flex-col gap-1.5">
           <h2 className="mb-2 font-sans text-[0.71875rem] font-normal tracking-[0.24em] text-or-profond">CATÉGORIES</h2>
@@ -110,7 +218,7 @@ export default function SearchDialog({ open, onClose }: SearchDialogProps) {
             {SHOP_CATEGORIES.map((category) => (
               <li key={category.slug}>
                 <Link
-                  href={`/categories/${category.slug}`}
+                  href={`/boutique?univers=${category.slug}`}
                   onClick={onClose}
                   className="flex h-14 items-center justify-between border-b border-filet font-display text-[1.3125rem] text-encre transition-colors duration-150 hover:text-oud lg:h-11 lg:rounded-[14px] lg:border-0 lg:px-3.5 lg:text-[1.1875rem] lg:hover:bg-sable"
                 >

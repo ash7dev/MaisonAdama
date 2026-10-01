@@ -1,7 +1,7 @@
 import { unstable_cache } from 'next/cache';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
-import { contenanceLabel, parseContenance, SHOP_PAGE_SIZE, type ShopParams } from './params';
+import { contenanceLabel, parseContenance, SEARCH_SYNONYMS, searchTokens, SHOP_PAGE_SIZE, type ShopParams } from './params';
 
 /**
  * Catalogue public de la boutique : 100 % serveur.
@@ -58,8 +58,39 @@ type Row = {
 
 const NEW_DAYS = 30;
 
+/** Pliage SQL identique à foldSearch() : minuscules, sans accents. */
+const fold = (col: Prisma.Sql) =>
+  Prisma.sql`translate(lower(coalesce(${col}, '')), 'àáâãäåçèéêëìíîïñòóôõöùúûüýÿœæ', 'aaaaaaceeeeiiiinooooouuuuyyoa')`;
+
+/**
+ * Chaque mot doit se retrouver quelque part : nom, marque, univers, famille ou
+ * description courte. Un synonyme (« thiouraye », « bakhour ») désigne un univers.
+ */
+function searchClause(q: string): Prisma.Sql | null {
+  const tokens = searchTokens(q);
+  if (!tokens.length) return null;
+  return Prisma.join(
+    tokens.map((t) => {
+      const like = `%${t.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+      const univers = SEARCH_SYNONYMS[t];
+      return Prisma.sql`(
+        ${fold(Prisma.sql`p.name`)} LIKE ${like}
+        OR ${fold(Prisma.sql`p.short_description`)} LIKE ${like}
+        OR ${fold(Prisma.sql`c.name`)} LIKE ${like}
+        OR EXISTS (SELECT 1 FROM brands b WHERE b.id = p.brand_id AND ${fold(Prisma.sql`b.name`)} LIKE ${like})
+        OR EXISTS (SELECT 1 FROM product_olfactory_families pf JOIN olfactory_families f ON f.id = pf.family_id
+                    WHERE pf.product_id = p.id AND ${fold(Prisma.sql`f.name`)} LIKE ${like})
+        ${univers ? Prisma.sql`OR c.slug = ${univers}` : Prisma.empty}
+      )`;
+    }),
+    ' AND ',
+  );
+}
+
 function whereClause(p: ShopParams): Prisma.Sql {
   const conds: Prisma.Sql[] = [Prisma.sql`TRUE`];
+  const search = p.q ? searchClause(p.q) : null;
+  if (search) conds.push(search);
   if (p.univers) conds.push(Prisma.sql`c.slug = ${p.univers}`);
   if (p.collection) {
     conds.push(Prisma.sql`EXISTS (SELECT 1 FROM product_collections pc JOIN collections col ON col.id = pc.collection_id

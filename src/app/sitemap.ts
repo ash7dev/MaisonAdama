@@ -21,6 +21,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: base, changeFrequency: 'daily', priority: 1 },
     { url: `${base}/boutique`, changeFrequency: 'daily', priority: 0.9 },
     { url: `${base}/trouver-mon-parfum`, changeFrequency: 'weekly', priority: 0.7 },
+    ...['livraison-et-paiement', 'comment-commander', 'questions-frequentes'].map((slug) => ({ url: `${base}/aide/${slug}`, changeFrequency: 'monthly' as const, priority: 0.4 })),
     ...['nouveautes', 'best-sellers', 'idees-cadeaux'].map((slug) => ({ url: `${base}/collections/${slug}`, changeFrequency: 'daily' as const, priority: 0.7 })),
     ...products.map((p) => ({ url: `${base}/produits/${p.slug}`, lastModified: p.updatedAt, changeFrequency: 'weekly' as const, priority: 0.8 })),
   ];

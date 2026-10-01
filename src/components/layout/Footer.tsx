@@ -22,11 +22,11 @@ const COLUMNS: FooterColumn[] = [
     title: 'Boutique',
     links: [
       { label: 'Toute la boutique', href: '/boutique' },
-      { label: 'Parfums', href: '/categories/parfums' },
-      { label: 'Muscs', href: '/categories/muscs' },
-      { label: 'Huiles', href: '/categories/huiles' },
-      { label: 'Oud', href: '/categories/oud' },
-      { label: 'Encens (thiouraye)', href: '/categories/encens' },
+      { label: 'Parfums', href: '/boutique?univers=parfums' },
+      { label: 'Muscs', href: '/boutique?univers=muscs' },
+      { label: 'Huiles', href: '/boutique?univers=huiles' },
+      { label: 'Oud', href: '/boutique?univers=oud' },
+      { label: 'Encens (thiouraye)', href: '/boutique?univers=encens' },
     ],
   },
   {
@@ -43,9 +43,9 @@ const COLUMNS: FooterColumn[] = [
     id: 'aide',
     title: 'Aide',
     links: [
-      { label: 'Livraison et paiement', href: '/livraison' },
-      { label: 'Comment commander', href: '/comment-commander' },
-      { label: 'Questions fréquentes', href: '/faq' },
+      { label: 'Livraison et paiement', href: '/aide/livraison-et-paiement' },
+      { label: 'Comment commander', href: '/aide/comment-commander' },
+      { label: 'Questions fréquentes', href: '/aide/questions-frequentes' },
     ],
   },
 ];

@@ -24,7 +24,7 @@ const TONES = [
 
 export const NIGHT_TONE = { bg: 'bg-[radial-gradient(90%_60%_at_50%_40%,#6B4526_0%,#3A2716_45%,#17100A_100%)]', fill: '#D9B45E', shine: 'rgba(241,221,168,.45)' };
 
-function shapeFor(categorySlug: string): string {
+export function shapeFor(categorySlug: string): string {
   if (categorySlug.includes('musc')) return SHAPES.musc;
   if (categorySlug.includes('huile')) return SHAPES.huile;
   if (categorySlug.includes('oud')) return SHAPES.oud;

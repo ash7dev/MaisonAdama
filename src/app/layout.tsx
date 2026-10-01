@@ -1,6 +1,7 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { marcellus, schibsted } from '@/config/fonts';
+import PwaRegister from '@/components/PwaRegister';
 
 export const metadata: Metadata = {
   title: 'Maison Adama Tchurayy | Haute Parfumerie & Eaux d\'Oud au Sénégal',
@@ -13,6 +14,32 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'fr_SN',
   },
+  // Application installable : le manifeste vient de app/manifest.ts.
+  applicationName: 'Maison Adama',
+  appleWebApp: {
+    capable: true,
+    title: 'Maison Adama',
+    // Barre d'état claire au-dessus du contenu (pas de chevauchement).
+    statusBarStyle: 'default',
+  },
+  icons: {
+    icon: [
+      { url: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
+    ],
+    apple: [{ url: '/icons/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
+  },
+  formatDetection: { telephone: false },
+  // iOS antérieurs à 16.4 : balise historique du mode plein écran.
+  other: { 'apple-mobile-web-app-capable': 'yes' },
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  // Plein écran sur iPhone : les zones sûres sont gérées (barre du bas, etc.).
+  viewportFit: 'cover',
+  themeColor: '#F1E9DB',
 };
 
 export default function RootLayout({
@@ -23,7 +50,10 @@ export default function RootLayout({
   return (
     <html lang="fr" className={`${marcellus.variable} ${schibsted.variable}`} suppressHydrationWarning>
       {/* Header et footer : dans (storefront)/layout.tsx, pour ne pas habiller l'admin. */}
-      <body suppressHydrationWarning>{children}</body>
+      <body suppressHydrationWarning>
+        {children}
+        <PwaRegister />
+      </body>
     </html>
   );
 }

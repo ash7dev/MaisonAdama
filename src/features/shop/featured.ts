@@ -3,11 +3,10 @@ import type { ShopProduct } from './queries';
 export type Featured = { id: string; reason: 'promo' | 'jour' };
 
 /**
- * Produit mis en vitrine à l'arrivée sur la boutique :
+ * Produit mis en vitrine à l'arrivée sur la boutique (là où l'on compare et
+ * achète, la promotion passe en premier) :
  * - la plus forte promotion en cours (en stock) ;
- * - sinon un « produit du jour », tiré parmi les produits en stock, qui change
- *   chaque jour à minuit (heure de Dakar = UTC) et reste le même pour tous
- *   les visiteurs de la journée.
+ * - sinon le produit du jour (voir pickOfTheDay).
  */
 export function pickFeatured(products: ShopProduct[], now = new Date()): Featured | null {
   const available = products.filter((p) => p.inStock);
@@ -19,9 +18,20 @@ export function pickFeatured(products: ShopProduct[], now = new Date()): Feature
     .sort((a, b) => (b.bestPercent ?? 0) - (a.bestPercent ?? 0) || a.fromPrice - b.fromPrice)[0];
   if (promo) return { id: promo.id, reason: 'promo' };
 
-  // Tirage stable : même jour + mêmes produits = même résultat.
-  const day = now.toISOString().slice(0, 10);
-  const ids = pool.map((p) => p.id).sort();
-  const seed = [...`${day}:${ids.join(',')}`].reduce((h, c) => (Math.imul(h, 31) + c.charCodeAt(0)) >>> 0, 2166136261);
-  return { id: ids[seed % ids.length], reason: 'jour' };
+  const day = pickOfTheDay(pool, now);
+  return day ? { id: day.id, reason: 'jour' } : null;
+}
+
+/**
+ * Produit du jour, en tour de rôle : chaque création en stock passe une fois
+ * par cycle (4 produits = une fois tous les 4 jours), sans répétition ni oubli,
+ * dans le même ordre pour tous. Le jour change à minuit, heure de Dakar (UTC).
+ * Une création en promotion reste dans le cycle, sans le monopoliser.
+ */
+export function pickOfTheDay(products: ShopProduct[], now = new Date()): ShopProduct | null {
+  const available = products.filter((p) => p.inStock);
+  const pool = (available.length ? available : products).slice().sort((a, b) => a.id.localeCompare(b.id));
+  if (pool.length === 0) return null;
+  const day = Math.floor(now.getTime() / 86_400_000);
+  return pool[day % pool.length];
 }

@@ -21,6 +21,7 @@ import NextActionStack from '@/features/dashboard/components/mobile/NextActionSt
 import { ActivityList, LowStockBanner, WeekBars } from '@/features/dashboard/components/mobile/MobileSections';
 import { AmountsProvider } from '@/features/dashboard/components/mobile/amounts';
 import { PendingIcon } from '@/components/ui/link-pending';
+import LiveRefresh from '@/components/admin/LiveRefresh';
 
 export const metadata: Metadata = {
   title: 'Tableau de bord · Administration Maison Adama',
@@ -36,6 +37,8 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
   return (
     <>
       {/* ═══════════════════ Desktop : vue 360 ═══════════════════ */}
+      {/* Nouvelles commandes, chiffres du jour : mis à jour en arrière-plan */}
+      <LiveRefresh />
       <div className="hidden flex-col gap-6 px-2 pb-8 pt-3 lg:flex">
         <header className="flex min-h-[72px] flex-wrap items-center justify-between gap-5 px-1">
           <div className="flex flex-col gap-2.5">

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { prisma } from '@/lib/prisma';
 import { ArrowRight, ChevronDown } from 'lucide-react';
 import { siteConfig } from '@/config/site';
 import { productImageUrl } from '@/lib/supabase/storage';
@@ -17,6 +18,22 @@ type PageProps = { params: Promise<{ slug: string }> };
 
 const GENDER: Record<string, string> = { HOMME: 'Homme', FEMME: 'Femme', UNISEXE: 'Mixte' };
 const CONCENTRATION: Record<string, string> = { EAU_DE_TOILETTE: 'Eau de toilette', EAU_DE_PARFUM: 'Eau de parfum', EXTRAIT: 'Extrait de parfum' };
+
+/**
+ * Fiches pré-générées au build (produits publiés) puis servies depuis le cache :
+ * un nouveau produit est généré à sa première visite ; une modification admin
+ * (revalidatePath + étiquette SHOP_TAG) régénère la fiche en arrière-plan.
+ */
+export const revalidate = 300;
+
+export async function generateStaticParams() {
+  try {
+    const products = await prisma.product.findMany({ where: { isPublished: true, isArchived: false }, select: { slug: true } });
+    return products.map((p) => ({ slug: p.slug }));
+  } catch {
+    return []; // base indisponible au build : les fiches se génèrent à la demande
+  }
+}
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;

@@ -1,6 +1,6 @@
 'use server';
 
-import { revalidateTag } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { ADMIN_COUNTS_TAG } from '@/features/admin/queries';
 import { DASHBOARD_TAG } from '@/features/dashboard/queries';
 import { SHOP_TAG } from '@/features/shop/queries';
@@ -31,6 +31,7 @@ export async function placeOrderAction(input: PlaceOrderInput): Promise<PlaceOrd
     revalidateTag(ADMIN_COUNTS_TAG);
     revalidateTag(DASHBOARD_TAG);
     revalidateTag(SHOP_TAG);
+    revalidatePath('/', 'layout'); // stock réservé : pages pré-générées régénérées en arrière-plan
     return { ok: true, token: order.publicToken, orderNumber: order.orderNumber };
   } catch (error) {
     if (error instanceof ValidationError) {

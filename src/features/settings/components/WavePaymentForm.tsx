@@ -10,7 +10,7 @@ import { ACCEPTED_IMAGE_TYPES, MAX_UPLOAD_BYTES, productImageUrl } from '@/lib/s
 import { useToast } from '@/components/ui/toast';
 import { describe, Field, inputClass, inputState } from '@/features/catalog/components/form-ui';
 import { createWaveQrUploadAction, discardWaveQrAction, saveWaveAction } from '../actions';
-import type { FieldErrors } from '../schemas';
+import { normalizeWaveLink, type FieldErrors } from '../schemas';
 import type { AdminStoreSettings } from '../queries';
 import { SaveBar, savedHint, SettingsSection } from './settings-ui';
 
@@ -23,16 +23,17 @@ export default function WavePaymentForm({ settings }: { settings: AdminStoreSett
   const notify = useToast();
   const [isPending, startTransition] = useTransition();
   const initialCode = settings?.waveMerchantCode ? formatSenegalPhone(settings.waveMerchantCode) : '';
-  const [saved, setSaved] = useState({ code: initialCode, qr: settings?.waveQrImagePath ?? null });
+  const [saved, setSaved] = useState({ code: initialCode, qr: settings?.waveQrImagePath ?? null, link: settings?.wavePaymentLink ?? '' });
   const [updatedAt, setUpdatedAt] = useState(settings?.updatedAt ?? null);
   const [code, setCode] = useState(saved.code);
   const [qr, setQr] = useState<string | null>(saved.qr);
+  const [link, setLink] = useState(saved.link);
   const [upload, setUpload] = useState<Upload>({ status: 'idle' });
   const [errors, setErrors] = useState<FieldErrors>({});
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const dirty = code.trim() !== saved.code.trim() || qr !== saved.qr;
+  const dirty = code.trim() !== saved.code.trim() || qr !== saved.qr || link.trim() !== saved.link.trim();
   const uploading = upload.status === 'working';
   const qrUrl = upload.status === 'working' ? upload.preview : productImageUrl(qr);
 
@@ -74,6 +75,7 @@ export default function WavePaymentForm({ settings }: { settings: AdminStoreSett
   function cancel() {
     discardDraftQr(qr);
     setCode(saved.code);
+    setLink(saved.link);
     setQr(saved.qr);
     setUpload({ status: 'idle' });
     setErrors({});
@@ -83,22 +85,23 @@ export default function WavePaymentForm({ settings }: { settings: AdminStoreSett
     event.preventDefault();
     if (uploading) return;
     startTransition(async () => {
-      const result = await saveWaveAction({ waveMerchantCode: code, waveQrImagePath: qr }, updatedAt);
+      const result = await saveWaveAction({ waveMerchantCode: code, waveQrImagePath: qr, wavePaymentLink: link }, updatedAt);
       if (!result.ok) {
         setErrors(result.fieldErrors ?? {});
         notify(result.error, 'error');
         return;
       }
-      const next = { code: code.trim(), qr };
+      const next = { code: code.trim(), qr, link: normalizeWaveLink(link) ?? '' };
       setSaved(next);
       setCode(next.code);
+      setLink(next.link);
       setUpdatedAt(result.updatedAt ?? null);
       setErrors({});
       notify(result.message);
     });
   }
 
-  const configured = Boolean(code.trim() || qr);
+  const configured = Boolean(code.trim() || qr || link.trim());
 
   return (
     <form onSubmit={submit} noValidate>
@@ -116,6 +119,30 @@ export default function WavePaymentForm({ settings }: { settings: AdminStoreSett
       >
         <div className="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_15rem]">
           <div className="flex flex-col gap-5">
+            <Field
+              id="wavePaymentLink"
+              label="Lien de paiement Wave Business"
+              hint="Recommandé. Dans Wave Business, copiez votre lien marchand : le client paie en un geste, montant déjà rempli."
+              error={errors.wavePaymentLink}
+            >
+              <input
+                id="wavePaymentLink"
+                type="url"
+                inputMode="url"
+                value={link}
+                maxLength={200}
+                onChange={(e) => {
+                  setLink(e.target.value);
+                  setErrors(({ wavePaymentLink: _, ...rest }) => rest);
+                }}
+                placeholder="https://pay.wave.com/m/…/c/sn/"
+                autoComplete="off"
+                spellCheck={false}
+                {...describe('wavePaymentLink', errors.wavePaymentLink, 'hint')}
+                className={cn(inputClass, inputState(errors.wavePaymentLink), 'h-12')}
+              />
+            </Field>
+
             <Field
               id="waveMerchantCode"
               label="Numéro Wave ou identifiant marchand"

@@ -1,6 +1,7 @@
 import Link from 'next/link';
-import { Bell, ExternalLink, PackagePlus, Plus, TicketPercent } from 'lucide-react';
+import { Bell, ExternalLink, Plus, Share2, TicketPercent } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { siteConfig } from '@/config/site';
 import type { DashboardData } from '../../queries';
 import { num, signedPercent, trendOf } from '../../format';
 import { PeriodSwitch } from '../ui';
@@ -106,13 +107,20 @@ export default function WalletHeader({ data, firstName }: { data: DashboardData;
         {[
           { href: '/admin/produits/nouveau', label: 'Produit', icon: Plus, strong: true },
           { href: '/admin/promotions/nouvelle', label: 'Promo', icon: TicketPercent },
-          { href: '/admin/produits?statut=stock-bas', label: 'Stock', icon: PackagePlus },
+          // Le lien de la boutique, prêt à envoyer sur WhatsApp (client ou Statut).
+          {
+            href: `https://wa.me/?text=${encodeURIComponent(`Découvrez la Maison Adama Tchurayy : parfums, muscs, huiles, oud et thiouraye, livrés partout au Sénégal. ${siteConfig.url}`)}`,
+            label: 'Partager',
+            icon: Share2,
+            external: true,
+          },
           { href: '/', label: 'Boutique', icon: ExternalLink, external: true },
         ].map(({ href, label, icon: Icon, strong, external }) => (
           <Link
             key={label}
             href={href}
             target={external ? '_blank' : undefined}
+            rel={external ? 'noopener noreferrer' : undefined}
             className="flex flex-col items-center gap-2 text-xs font-medium text-encre"
           >
             <span className={cn('grid size-[52px] place-items-center rounded-full', strong ? 'bg-oud text-sur-oud' : 'bg-paille text-oud')}>

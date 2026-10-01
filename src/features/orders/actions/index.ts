@@ -3,6 +3,8 @@
 import { OrderStatus } from '@prisma/client';
 import { revalidatePath, revalidateTag } from 'next/cache';
 import { ADMIN_COUNTS_TAG } from '@/features/admin/queries';
+import { DASHBOARD_TAG } from '@/features/dashboard/queries';
+import { SHOP_TAG } from '@/features/shop/queries';
 import { requireAdmin } from '@/features/auth/require-admin';
 import { toDomainError } from '@/lib/db-errors';
 import { DomainError } from '@/lib/errors';
@@ -21,8 +23,10 @@ export type OrderActionResult = { ok: true; message: string } | { ok: false; err
 /** Pages à rafraîchir : liste, détail, badges de navigation, tableau de bord. */
 function revalidateOrder(orderId: string) {
   revalidateTag(ADMIN_COUNTS_TAG); // badges « à confirmer », « Wave à vérifier »
-  revalidatePath('/admin', 'layout');
-  revalidatePath(`/admin/commandes/${orderId}`);
+  revalidateTag(DASHBOARD_TAG); // chiffre d'affaires, activité du jour
+  revalidateTag(SHOP_TAG); // stock rendu à l'annulation, classement des best-sellers
+  // Tout le site : stock rendu (boutique), classement, badges et fiche de la commande.
+  revalidatePath('/', 'layout');
 }
 
 async function run(orderId: string, message: string, fn: (adminId: string) => Promise<unknown>): Promise<OrderActionResult> {

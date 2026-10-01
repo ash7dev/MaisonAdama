@@ -9,6 +9,7 @@ import { formatSenegalPhone } from '@/lib/phone';
 import { whatsappLink } from '@/lib/whatsapp';
 import { productImageUrl } from '@/lib/supabase/storage';
 import { getStoreSettings } from '@/features/settings';
+import { wavePayUrl } from '@/features/settings/schemas';
 import ProductVisual from '@/features/shop/components/ProductVisual';
 
 export const metadata: Metadata = {
@@ -51,6 +52,7 @@ export default async function OrderConfirmationPage({ params }: PageProps) {
   const waveCode = settings?.waveMerchantCode ?? null;
   const waveDisplay = waveCode ? (waveCode.startsWith('+221') ? formatSenegalPhone(waveCode) : waveCode) : null;
   const qr = productImageUrl(settings?.waveQrImagePath);
+  const payLink = settings?.wavePaymentLink ?? null;
   const wa = whatsappLink(settings?.whatsappNumber, `Bonjour Maison Adama, je viens de passer la commande ${order.orderNumber}.`);
   const cancelled = order.status === 'ANNULEE';
 
@@ -92,6 +94,42 @@ export default async function OrderConfirmationPage({ params }: PageProps) {
               </h2>
               {paid ? (
                 <p className="text-[0.9375rem] text-succes">Merci, votre paiement est confirmé. Nous préparons votre commande.</p>
+              ) : payLink ? (
+                // Lien marchand Wave Business : le montant est déjà rempli, le client valide.
+                <div className="flex flex-col gap-5">
+                  <a
+                    href={wavePayUrl(payLink, order.total)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex h-14 items-center justify-center gap-3 rounded-full bg-[#1DC8FF] px-6 text-[0.9375rem] font-bold text-[#0B2A3A] shadow-[0_12px_28px_rgb(29_200_255/0.35)] transition-transform duration-150 hover:-translate-y-0.5 sm:self-start"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src="/images/wave.png" alt="" className="size-8 rounded-full object-cover" />
+                    Payer {formatFCFA(order.total)} avec Wave
+                  </a>
+                  <ol className="flex flex-col gap-2.5 text-[0.9375rem] leading-relaxed text-[#1F5673]">
+                    <li><strong className="font-semibold">1.</strong> Touchez le bouton : Wave s’ouvre avec le montant déjà rempli.</li>
+                    <li><strong className="font-semibold">2.</strong> Validez le paiement dans Wave.</li>
+                    <li><strong className="font-semibold">3.</strong> Gardez votre reçu : la Maison vérifie la réception de la commande <strong className="font-semibold">{order.orderNumber}</strong> avant de la préparer.</li>
+                    {order.paymentReference && <li className="text-sm">Référence indiquée : <strong className="font-semibold">{order.paymentReference}</strong></li>}
+                  </ol>
+                  {(waveDisplay || qr) && (
+                    <details className="group rounded-2xl bg-white/50 px-4 py-3 text-[0.875rem] text-[#1F5673]">
+                      <summary className="cursor-pointer list-none font-semibold [&::-webkit-details-marker]:hidden">Le bouton ne s’ouvre pas ? Autre façon de payer</summary>
+                      <div className="grid items-center gap-4 pt-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+                        <p>
+                          Envoyez <strong className="whitespace-nowrap font-bold">{formatFCFA(order.total)}</strong>
+                          {waveDisplay ? <> au <strong className="whitespace-nowrap font-bold tabular-nums">{waveDisplay}</strong></> : ' en scannant le QR code'}, en indiquant{' '}
+                          <strong className="font-semibold">{order.orderNumber}</strong> en commentaire.
+                        </p>
+                        {qr && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={qr} alt="QR code Wave de la Maison Adama" className="mx-auto size-32 rounded-2xl bg-white object-contain p-2 shadow-sm" />
+                        )}
+                      </div>
+                    </details>
+                  )}
+                </div>
               ) : (
                 <div className="grid items-center gap-6 sm:grid-cols-[minmax(0,1fr)_auto]">
                   <ol className="flex flex-col gap-3 text-[0.9375rem] leading-relaxed text-[#1F5673]">

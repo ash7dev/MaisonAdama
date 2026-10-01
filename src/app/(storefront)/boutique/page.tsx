@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
-import Image from 'next/image';
 import Link from 'next/link';
-import { Banknote, MessageCircle, SearchX, Sparkles, Truck } from 'lucide-react';
+import { SearchX, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { activeFilterCount, parseShopParams, shopHref, SHOP_PAGE_SIZE, type ShopParams } from '@/features/shop/params';
 import { SHOP_CATEGORIES } from '@/components/layout/nav-config';
@@ -10,13 +9,19 @@ import { FilterBar, MobileFilters } from '@/features/shop/components/filters';
 import VitrineIndex from '@/features/shop/components/VitrineIndex';
 import { pickFeatured } from '@/features/shop/featured';
 import MobileProductList from '@/features/shop/components/MobileProductList';
-
-export const metadata: Metadata = {
-  title: 'La Boutique · Maison Adama',
-  description: 'Parfums, muscs, huiles, oud et thiouraye, choisis et préparés à Dakar. Livraison partout au Sénégal, paiement Wave ou à la livraison.',
-};
+import TrustStrip from '@/features/shop/components/TrustStrip';
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+
+const DESCRIPTION = 'Parfums, muscs, huiles, oud et thiouraye, choisis et préparés à Dakar. Livraison partout au Sénégal, paiement Wave ou à la livraison.';
+
+export async function generateMetadata({ searchParams }: { searchParams: SearchParams }): Promise<Metadata> {
+  const { q } = parseShopParams(await searchParams);
+  // Une page de résultats n'a pas à être indexée ; la boutique, si.
+  return q
+    ? { title: `« ${q} » · Recherche · Maison Adama`, robots: { index: false, follow: true } }
+    : { title: 'La Boutique · Maison Adama', description: DESCRIPTION, alternates: { canonical: '/boutique' } };
+}
 
 const num = new Intl.NumberFormat('fr-FR');
 
@@ -37,7 +42,9 @@ export default async function BoutiquePage({ searchParams }: { searchParams: Sea
         hint: SHOP_CATEGORIES.find((c) => c.slug === params.univers)?.hint,
       }
     : null;
-  const universEmpty = Boolean(universMeta) && total === 0 && activeFilterCount(params) === 0 && !params.collection;
+  const universEmpty = Boolean(universMeta) && !params.q && total === 0 && activeFilterCount(params) === 0 && !params.collection;
+  const searchEmpty = Boolean(params.q) && total === 0 && activeFilterCount(params) === 0 && !params.univers;
+  const withoutSearch = shopHref({ ...params, q: undefined });
 
   const empty = catalogEmpty ? (
     <EmptyState
@@ -51,6 +58,13 @@ export default async function BoutiquePage({ searchParams }: { searchParams: Sea
       title={params.univers === 'oud' ? 'Notre oud arrive bientôt' : `Nos ${universMeta.name.toLowerCase()} arrivent bientôt`}
       text="La Maison prépare cet univers. Écrivez-nous sur WhatsApp pour être prévenu en premier, ou découvrez nos autres créations."
       action={{ href: shopHref({ ...params, univers: undefined }), label: 'Voir toute la boutique' }}
+    />
+  ) : searchEmpty ? (
+    <EmptyState
+      icon={<SearchX className="size-6" strokeWidth={1.5} aria-hidden="true" />}
+      title={`Aucune création pour « ${params.q} »`}
+      text="Vérifiez l’orthographe ou essayez un mot plus court : musc, oud, thiouraye, un nom de marque… La Maison peut aussi vous conseiller sur WhatsApp."
+      action={{ href: withoutSearch, label: 'Voir toute la boutique' }}
     />
   ) : products.length === 0 ? (
     <EmptyState
@@ -86,7 +100,12 @@ export default async function BoutiquePage({ searchParams }: { searchParams: Sea
         <div className="flex flex-col gap-3">
           <nav aria-label="Fil d’Ariane" className="hidden text-[0.8125rem] text-fumee lg:block">
             <Link href="/" className="hover:text-encre">Accueil</Link> <span className="text-filet-fort">/</span>{' '}
-            {universMeta ? (
+            {params.q ? (
+              <>
+                <Link href={withoutSearch} className="hover:text-encre">Boutique</Link> <span className="text-filet-fort">/</span>{' '}
+                <span className="text-encre">Recherche</span>
+              </>
+            ) : universMeta ? (
               <>
                 <Link href={shopHref({ ...params, univers: undefined })} className="hover:text-encre">Boutique</Link> <span className="text-filet-fort">/</span>{' '}
                 <span className="text-encre">{universMeta.name}</span>
@@ -96,15 +115,28 @@ export default async function BoutiquePage({ searchParams }: { searchParams: Sea
             )}
           </nav>
           <div className="flex items-end justify-between gap-4">
-            <h1 className="text-[2.25rem] leading-none text-encre lg:text-[3.5rem]">{universMeta?.name ?? 'La Boutique'}</h1>
+            <h1 className="min-w-0 break-words text-[2.25rem] leading-none text-encre lg:text-[3.5rem]">
+              {params.q ? `« ${params.q} »` : universMeta?.name ?? 'La Boutique'}
+            </h1>
             <span className="text-[0.8125rem] text-fumee lg:hidden">
               <strong className="tabular-nums text-encre">{num.format(total)}</strong> création{total > 1 ? 's' : ''}
             </span>
           </div>
         </div>
+        {params.q ? (
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.9375rem] text-fumee lg:justify-end lg:text-right">
+            <span>
+              <strong className="tabular-nums text-encre">{num.format(total)}</strong> création{total > 1 ? 's' : ''} pour votre recherche
+            </span>
+            <Link href={withoutSearch} scroll={false} className="font-semibold text-oud underline underline-offset-4">
+              Effacer la recherche
+            </Link>
+          </p>
+        ) : (
         <p className="hidden max-w-md text-right text-[0.9375rem] leading-relaxed text-fumee lg:block">
           {universMeta?.hint ? `${universMeta.hint}, choisis et préparés à Dakar.` : 'Parfums, muscs, huiles, oud et thiouraye, choisis et préparés à Dakar.'} Survolez une création : elle s’expose dans la vitrine.
         </p>
+        )}
       </header>
 
       {!catalogEmpty && (
@@ -177,37 +209,7 @@ export default async function BoutiquePage({ searchParams }: { searchParams: Sea
       )}
 
       {/* ═══════════════ Engagements ═══════════════ */}
-      <section aria-label="Nos engagements" className="mt-6 grid gap-3 md:grid-cols-3 md:gap-4">
-        {[
-          { icon: Truck, title: 'Livraison partout au Sénégal', text: 'Rapide à Dakar, 48 à 72 h en région', tone: 'bg-paille text-oud' },
-          { icon: null, title: 'Wave ou paiement à la livraison', text: 'Vous payez comme vous préférez', tone: '' },
-          { icon: MessageCircle, title: 'Conseil sur WhatsApp', text: 'Une question ? On vous répond', tone: 'bg-succes-fond text-succes' },
-        ].map(({ icon: Icon, title, text, tone }) => (
-          <div key={title} className="flex items-center gap-4 rounded-[26px] border border-filet bg-lin p-5">
-            {Icon ? (
-              <span className={cn('grid size-12 shrink-0 place-items-center rounded-2xl', tone)}>
-                <Icon className="size-[22px]" strokeWidth={1.6} aria-hidden="true" />
-              </span>
-            ) : (
-              // Logo officiel Wave (rond) + pastille « billets » pour le paiement à la livraison.
-              <span className="relative size-12 shrink-0">
-                <span className="block size-12 overflow-hidden rounded-full shadow-[0_6px_16px_rgb(29_200_255/0.25)]">
-                  <Image src="/images/wave.png" alt="Wave" width={96} height={96} className="size-full scale-[1.06] object-cover" />
-                </span>
-                <span className="absolute -bottom-1 -right-1.5 grid size-6 place-items-center rounded-full bg-lin text-succes ring-2 ring-lin">
-                  <span className="grid size-full place-items-center rounded-full bg-succes-fond">
-                    <Banknote className="size-3.5" strokeWidth={2} aria-hidden="true" />
-                  </span>
-                </span>
-              </span>
-            )}
-            <span className="flex flex-col gap-0.5">
-              <strong className="text-[0.9375rem] font-semibold text-encre">{title}</strong>
-              <span className="text-[0.8125rem] text-fumee">{text}</span>
-            </span>
-          </div>
-        ))}
-      </section>
+      <TrustStrip className="mt-6" />
     </div>
   );
 }

@@ -2,12 +2,12 @@
 'use client';
 
 import { useState, useSyncExternalStore } from 'react';
-import { Truck, Wallet, type LucideIcon } from 'lucide-react';
+import { Tag, Truck, Wallet, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type Promise = { icon: LucideIcon; text: string };
 
-const MESSAGES: Promise[] = [
+const BASE_MESSAGES: Promise[] = [
   { icon: Truck, text: 'Livraison partout au Sénégal' },
   { icon: Wallet, text: 'Paiement Wave ou à la livraison' },
 ];
@@ -38,7 +38,9 @@ function usePrefersReducedMotion(): boolean {
  * message suivant ; « réduire les animations » fige le bandeau ; les lecteurs
  * d'écran lisent la liste complète, jamais le défilement.
  */
-export default function AnnouncementTicker() {
+export default function AnnouncementTicker({ promo }: { promo?: { text: string; href: string } | null }) {
+  // La promotion en cours passe en premier (texte seul : le bandeau fait défiler au toucher).
+  const MESSAGES: Promise[] = promo ? [{ icon: Tag, text: promo.text }, ...BASE_MESSAGES] : BASE_MESSAGES;
   const [tick, setTick] = useState(0);
   const [paused, setPaused] = useState(false);
   const reducedMotion = usePrefersReducedMotion();

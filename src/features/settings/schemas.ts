@@ -64,6 +64,25 @@ export type StoreInfoInput = z.input<typeof storeInfoSchema>;
 
 export const WAVE_QR_PATH = /^catalog\/settings\/wave-qr-[0-9a-f-]{36}\.webp$/;
 
+/** Lien marchand Wave Business, rangé sous sa forme canonique (sans montant). */
+export const WAVE_LINK = /^https:\/\/pay\.wave\.com\/m\/[A-Za-z0-9_-]+\/c\/[a-z]{2}\/$/;
+
+export function normalizeWaveLink(value: string): string | null {
+  try {
+    const url = new URL(value.trim());
+    const m = url.pathname.match(/^\/m\/([A-Za-z0-9_-]+)\/c\/([a-z]{2})\/?$/i);
+    if (url.protocol !== 'https:' || url.hostname !== 'pay.wave.com' || !m) return null;
+    return `https://pay.wave.com/m/${m[1]}/c/${m[2].toLowerCase()}/`;
+  } catch {
+    return null;
+  }
+}
+
+/** Lien avec le montant pré-rempli (FCFA entiers). */
+export function wavePayUrl(link: string, amount: number): string {
+  return `${link}?amount=${Math.round(amount)}`;
+}
+
 export const waveSchema = z.object({
   waveMerchantCode: z
     .string()
@@ -78,6 +97,12 @@ export const waveSchema = z.object({
     .string()
     .nullable()
     .refine((v) => v === null || WAVE_QR_PATH.test(v), 'Image du QR code invalide.'),
+  wavePaymentLink: z
+    .string()
+    .trim()
+    .max(200, '200 caractères au maximum.')
+    .refine((v) => !v || normalizeWaveLink(v) !== null, 'Collez le lien Wave Business, de la forme https://pay.wave.com/m/…/c/sn/')
+    .transform((v) => (v ? normalizeWaveLink(v) : null)),
 });
 export type WaveInput = z.input<typeof waveSchema>;
 

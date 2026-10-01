@@ -15,7 +15,7 @@ export default async function SettingsPage() {
   const [, { settings, zones }] = await Promise.all([requireAdmin(), getAdminSettings()]);
 
   const activeZones = zones.filter((z) => z.isActive).length;
-  const waveReady = Boolean(settings?.waveMerchantCode || settings?.waveQrImagePath);
+  const waveReady = Boolean(settings?.wavePaymentLink || settings?.waveMerchantCode || settings?.waveQrImagePath);
 
   const readiness: ReadinessItem[] = [
     {

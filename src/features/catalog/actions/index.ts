@@ -21,13 +21,15 @@ import { adjustStock, restock } from '@/features/inventory/services/adjust-stock
 export type ActionResult<T = undefined> = { ok: true; data?: T; message: string } | { ok: false; error: string };
 
 /** Pages à rafraîchir après un changement de catalogue (liste admin, badges, boutique). */
-function revalidateCatalog(slug?: string, categorySlug?: string) {
+/**
+ * Un changement de catalogue touche tout le site : données en cache (étiquettes)
+ * et pages pré-générées (accueil, fiches, collections). Elles sont marquées
+ * périmées et se régénèrent en arrière-plan à la visite suivante.
+ */
+function revalidateCatalog() {
   revalidateTag(ADMIN_COUNTS_TAG); // badge « stock bas »
   revalidateTag(SHOP_TAG); // catalogue public (prix, stock, visibilité)
-  revalidatePath('/admin', 'layout');
-  revalidatePath('/boutique');
-  if (categorySlug) revalidatePath(`/categories/${categorySlug}`);
-  if (slug) revalidatePath(`/produits/${slug}`);
+  revalidatePath('/', 'layout');
 }
 
 function errorMessage(error: unknown, fallback: string): string {
@@ -52,8 +54,8 @@ export async function changeProductStatusAction(productId: string, change: Produ
   const admin = await requireAdmin();
   if (!Object.hasOwn(STATUS_MESSAGES, change)) return { ok: false, error: 'Action inconnue.' };
   try {
-    const { slug, categorySlug } = await changeProductStatus(admin.id, productId, change);
-    revalidateCatalog(slug, categorySlug);
+    await changeProductStatus(admin.id, productId, change);
+    revalidateCatalog();
     return { ok: true, message: STATUS_MESSAGES[change] };
   } catch (error) {
     return { ok: false, error: errorMessage(error, 'La modification n’a pas pu être enregistrée.') };
@@ -200,7 +202,7 @@ export async function createProductAction(_previous: ProductFormState, formData:
     revalidateTag(CATALOG_OPTIONS_TAG); // une nouvelle marque a pu être créée
     revalidateTag(ADMIN_COUNTS_TAG); // stock initial : badge « stock bas »
     revalidatePath('/admin', 'layout');
-    if (product.isPublished) revalidateCatalog(product.slug, product.categorySlug);
+    if (product.isPublished) revalidateCatalog();
     return { status: 'success', product };
   } catch (error) {
     return productErrorState(error);
@@ -243,7 +245,7 @@ export async function updateProductAction(_previous: ProductFormState, formData:
       }
     }
 
-    revalidateCatalog(product.slug, product.categorySlug);
+    revalidateCatalog();
     if (product.previousSlug !== product.slug) revalidatePath(`/produits/${product.previousSlug}`);
     revalidatePath(`/admin/produits/${product.id}`);
     return {

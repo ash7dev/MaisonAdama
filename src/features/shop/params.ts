@@ -24,6 +24,8 @@ export const GENDER_LABELS: Record<ShopGender, string> = { femme: 'Femme', homme
 export const SHOP_PAGE_SIZE = 24;
 
 export type ShopParams = {
+  /** Recherche libre (nom, marque, univers, famille, description). */
+  q?: string;
   univers?: string;
   /** Collection éditoriale (« idees-cadeaux », « nouveautes »…). */
   collection?: string;
@@ -59,7 +61,9 @@ export function parseShopParams(searchParams: Record<string, string | string[] |
   let max = int('max');
   if (min !== undefined && max !== undefined && min > max) [min, max] = [max, min];
 
+  const q = one('q')?.replace(/\s+/g, ' ').slice(0, 60).trim();
   return {
+    q: q || undefined,
     univers: univers && SLUG.test(univers) ? univers : undefined,
     collection: collection && SLUG.test(collection) ? collection : undefined,
     min,
@@ -77,6 +81,7 @@ export function parseShopParams(searchParams: Record<string, string | string[] |
 export function shopHref(params: ShopParams, changes: Partial<ShopParams> = {}): string {
   const next = { ...params, page: 1, ...changes };
   const q = new URLSearchParams();
+  if (next.q) q.set('q', next.q);
   if (next.univers) q.set('univers', next.univers);
   if (next.collection) q.set('collection', next.collection);
   if (next.min !== undefined) q.set('min', String(next.min));
@@ -105,4 +110,49 @@ export function parseContenance(key: string): { size: number; unit: 'ML' | 'G' |
 export function contenanceLabel(size: number, unit: 'ML' | 'G' | 'UNITE'): string {
   const n = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 }).format(size);
   return unit === 'ML' ? `${n} ml` : unit === 'G' ? `${n} g` : `${n} unité${size > 1 ? 's' : ''}`;
+}
+
+// -----------------------------------------------------------------------------
+//  Recherche : sans accents, avec les synonymes que les clients emploient
+// -----------------------------------------------------------------------------
+
+/** « Épicé » → « epice » (même pliage que côté SQL). */
+export function foldSearch(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/œ/g, 'oe')
+    .replace(/æ/g, 'ae');
+}
+
+/** Mots qui désignent un univers sans figurer dans les fiches. */
+export const SEARCH_SYNONYMS: Record<string, string> = {
+  thiouraye: 'encens',
+  thiourai: 'encens',
+  tchouraye: 'encens',
+  chouraye: 'encens',
+  tchurayy: 'encens',
+  cuuraay: 'encens',
+  bakhour: 'encens',
+  bakhur: 'encens',
+  bakhoor: 'encens',
+  encens: 'encens',
+  musc: 'muscs',
+  muscs: 'muscs',
+  huile: 'huiles',
+  huiles: 'huiles',
+  parfum: 'parfums',
+  parfums: 'parfums',
+  oud: 'oud',
+  oudh: 'oud',
+};
+
+/** Mots de la recherche (3 à 4 au plus), pliés, sans mots vides. */
+export function searchTokens(q: string): string[] {
+  const STOP = new Set(['de', 'du', 'des', 'la', 'le', 'les', 'un', 'une', 'et', 'pour', 'en', 'a', 'au', 'aux']);
+  return foldSearch(q)
+    .split(/[^a-z0-9]+/)
+    .filter((t) => t.length > 1 && !STOP.has(t))
+    .slice(0, 4);
 }

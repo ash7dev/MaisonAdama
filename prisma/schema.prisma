@@ -565,6 +565,8 @@ model StoreSettings {
   waveMerchantCode String?  @map("wave_merchant_code") @db.VarChar(40)
   /// Chemin Storage du QR code Wave
   waveQrImagePath  String?  @map("wave_qr_image_path") @db.VarChar(500)
+  /// Lien de paiement marchand Wave Business (https://pay.wave.com/m/…/c/sn/)
+  wavePaymentLink  String?  @map("wave_payment_link") @db.VarChar(200)
   whatsappNumber   String?  @map("whatsapp_number") @db.VarChar(20)
   contactPhone     String?  @map("contact_phone") @db.VarChar(20)
   contactEmail     String?  @map("contact_email") @db.VarChar(120)

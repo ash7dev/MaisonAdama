@@ -14,6 +14,7 @@ import OrderTabs from '@/features/orders/components/OrderTabs';
 import OrdersToolbar from '@/features/orders/components/OrdersToolbar';
 import OrderList from '@/features/orders/components/OrderList';
 import Pagination from '@/features/catalog/components/list/Pagination';
+import LiveRefresh from '@/components/admin/LiveRefresh';
 
 export const metadata: Metadata = {
   title: 'Commandes · Administration Maison Adama',
@@ -51,6 +52,8 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
 
   return (
     <div className="flex flex-col gap-5 px-4 pb-10 pt-6 lg:px-2 lg:pb-8 lg:pt-3">
+      {/* Nouvelles commandes, chiffres du jour : mis à jour en arrière-plan */}
+      <LiveRefresh />
       <header className="flex flex-col gap-2 px-1 lg:min-h-[72px] lg:justify-center">
         <h1 className="text-[1.875rem] leading-none text-encre lg:text-[2.125rem]">Commandes</h1>
         <p className="text-sm text-fumee">

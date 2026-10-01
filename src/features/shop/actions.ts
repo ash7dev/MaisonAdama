@@ -36,3 +36,41 @@ export async function findPerfumesAction(input: PerfumeAnswers, familyNames: str
   const score = (p: ShopProduct) => p.families.filter((f) => names.includes(f)).length;
   return { products: [...products].sort((a, b) => score(b) - score(a)).slice(0, 8), total };
 }
+
+export type SearchSuggestion = {
+  slug: string;
+  name: string;
+  categoryName: string;
+  categorySlug: string;
+  id: string;
+  fromPrice: number;
+  hasRange: boolean;
+  bestPercent: number | null;
+  inStock: boolean;
+  image: { path: string; alt: string | null } | null;
+};
+
+/**
+ * Suggestions pendant la frappe (fenêtre de recherche) : même requête et même
+ * cache que la page de résultats, réduites aux 5 premières créations.
+ */
+export async function searchSuggestionsAction(q: string): Promise<{ total: number; items: SearchSuggestion[] }> {
+  const query = typeof q === 'string' ? q.replace(/\s+/g, ' ').trim().slice(0, 60) : '';
+  if (query.length < 2) return { total: 0, items: [] };
+  const { products, total } = await listShopProducts({ q: query, familles: [], promo: false, tri: 'pertinence', page: 1 });
+  return {
+    total,
+    items: products.slice(0, 5).map((p) => ({
+      id: p.id,
+      slug: p.slug,
+      name: p.name,
+      categoryName: p.categoryName,
+      categorySlug: p.categorySlug,
+      fromPrice: p.fromPrice,
+      hasRange: p.toPrice > p.fromPrice,
+      bestPercent: p.bestPercent,
+      inStock: p.inStock,
+      image: p.images[0] ?? null,
+    })),
+  };
+}

@@ -51,6 +51,13 @@ const EDITORIAL: Record<string, { title: string; description: string }> = {
   },
 };
 
+// Les trois collections éditoriales sont pré-générées ; les autres à la demande.
+export const revalidate = 300;
+
+export function generateStaticParams() {
+  return Object.keys(EDITORIAL).map((slug) => ({ slug }));
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const known = EDITORIAL[slug];
