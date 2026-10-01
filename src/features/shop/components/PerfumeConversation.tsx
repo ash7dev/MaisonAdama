@@ -31,6 +31,9 @@ function Avatar() {
   );
 }
 
+/** Garde-fou : un seul rechargement automatique par session. */
+const RELOAD_KEY = 'ma-finder-reload';
+
 function Bot({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex max-w-[20rem] items-end gap-2.5 motion-safe:animate-reveal">
@@ -128,13 +131,51 @@ export default function PerfumeConversation({
     }
     setTyping(true);
     const t = setTimeout(() => setTyping(false), TYPING_MS);
-    if (step === 4) {
-      startTransition(async () => {
-        setSelection(await findPerfumesAction(answers, selectedNames));
-      });
-    }
+    if (step === 4) search();
     return () => clearTimeout(t);
   }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /**
+   * Recherche finale. Un échec (réseau coupé, base injoignable, page ouverte
+   * pendant une mise à jour du site) ne casse jamais la page : un réessai
+   * automatique, puis la bulle « Réessayer ».
+   */
+  function search() {
+    startTransition(async () => {
+      let thrown = false;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const result = await findPerfumesAction(answers, selectedNames);
+          if (!result.failed) {
+            setSelection(result);
+            try {
+              sessionStorage.removeItem(RELOAD_KEY);
+            } catch {}
+            return;
+          }
+          thrown = false;
+        } catch {
+          thrown = true; // réseau coupé, ou site mis à jour pendant la visite
+        }
+        if (attempt === 0) await new Promise((r) => setTimeout(r, 800));
+      }
+      // Action introuvable après une mise à jour du site : on recharge UNE fois.
+      // Les réponses sont dans l'adresse (?etape=4…) : la sélection revient
+      // directement, calculée par la nouvelle version.
+      if (thrown && navigator.onLine) {
+        try {
+          if (!sessionStorage.getItem(RELOAD_KEY)) {
+            sessionStorage.setItem(RELOAD_KEY, '1');
+            window.location.reload();
+            return;
+          }
+        } catch {
+          /* stockage indisponible : on affiche « Réessayer » */
+        }
+      }
+      setSelection({ products: [], total: 0, failed: true });
+    });
+  }
 
   // Montre la nouvelle question sans jamais « sauter » : défilement minimal, seulement si elle est cachée.
   useEffect(() => {
@@ -315,7 +356,18 @@ export default function PerfumeConversation({
       {step === 4 && (waiting ? <Typing /> : selection && (
         <div className="flex flex-col gap-4">
           <Bot>
-            {selection.total > 0 ? (
+            {selection.failed ? (
+              <span className="flex flex-col items-start gap-3">
+                <span>La Maison n’a pas pu chercher : la connexion a dû faiblir. Vos réponses sont gardées.</span>
+                <button
+                  type="button"
+                  onClick={search}
+                  className="flex h-10 items-center gap-2 rounded-full bg-oud px-4 text-sm font-semibold text-sur-oud"
+                >
+                  <RotateCcw className="size-3.5" strokeWidth={2.2} aria-hidden="true" /> Réessayer
+                </button>
+              </span>
+            ) : selection.total > 0 ? (
               <>
                 Voici ce que la Maison vous conseille : <strong className="font-semibold">{selection.total} création{selection.total > 1 ? 's' : ''}</strong>
                 {selectedNames.length ? ' dans vos familles préférées' : ''}.

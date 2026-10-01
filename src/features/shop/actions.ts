@@ -12,7 +12,7 @@ const answersSchema = z.object({
 });
 
 export type PerfumeAnswers = z.input<typeof answersSchema>;
-export type PerfumeSelection = { products: ShopProduct[]; total: number };
+export type PerfumeSelection = { products: ShopProduct[]; total: number; failed?: boolean };
 
 /**
  * Sélection du « conseil de la Maison » : mêmes requêtes et mêmes prix que la
@@ -31,10 +31,16 @@ export async function findPerfumesAction(input: PerfumeAnswers, familyNames: str
     tri: 'pertinence',
     page: 1,
   };
-  const { products, total } = await listShopProducts(params);
-  const names = familyNames.slice(0, 8);
-  const score = (p: ShopProduct) => p.families.filter((f) => names.includes(f)).length;
-  return { products: [...products].sort((a, b) => score(b) - score(a)).slice(0, 8), total };
+  try {
+    const { products, total } = await listShopProducts(params);
+    const names = Array.isArray(familyNames) ? familyNames.filter((n) => typeof n === 'string').slice(0, 8) : [];
+    const score = (p: ShopProduct) => p.families.filter((f) => names.includes(f)).length;
+    return { products: [...products].sort((a, b) => score(b) - score(a)).slice(0, 8), total };
+  } catch (error) {
+    // Base momentanément injoignable : le navigateur affiche « Réessayer ».
+    console.error('findPerfumesAction', error);
+    return { products: [], total: 0, failed: true };
+  }
 }
 
 export type SearchSuggestion = {
