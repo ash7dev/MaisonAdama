@@ -11,6 +11,8 @@ export type CompressedImage = {
   blob: Blob;
   width: number;
   height: number;
+  /** Extension du fichier envoyé : WebP si le navigateur sait l'encoder, sinon JPEG. */
+  ext: 'webp' | 'jpg';
 };
 
 const MAX_EDGE = 2000;
@@ -34,12 +36,26 @@ export async function compressImage(file: File, maxBytes: number): Promise<Compr
   context.drawImage(bitmap, 0, 0, width, height);
   bitmap.close();
 
-  for (const quality of QUALITIES) {
-    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/webp', quality));
-    if (!blob) break;
-    // Safari ancien : pas d'encodeur WebP, toBlob renvoie du PNG.
-    if (blob.type !== 'image/webp') throw new Error('Mettez à jour votre navigateur pour envoyer des photos.');
-    if (blob.size <= maxBytes) return { blob, width, height };
+  // Safari (iPhone, iPad, Mac) sait afficher le WebP mais pas l'encoder : toBlob
+  // renvoie alors du PNG. Dans ce cas, on passe au JPEG, encodé partout.
+  const encode = (type: string, quality: number) => new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, type, quality));
+  const probe = await encode('image/webp', QUALITIES[0]);
+  const webp = probe?.type === 'image/webp';
+  const type = webp ? 'image/webp' : 'image/jpeg';
+  const ext = webp ? 'webp' : 'jpg';
+  // Le JPEG n'a pas de transparence : un PNG détouré aurait un fond noir.
+  // On glisse un fond blanc DERRIÈRE l'image (le WebP, lui, garde la transparence).
+  if (!webp) {
+    context.globalCompositeOperation = 'destination-over';
+    context.fillStyle = '#FFFFFF';
+    context.fillRect(0, 0, width, height);
+    context.globalCompositeOperation = 'source-over';
+  }
+
+  for (const [i, quality] of QUALITIES.entries()) {
+    const blob = i === 0 && webp ? probe : await encode(type, quality);
+    if (!blob || blob.type !== type) break;
+    if (blob.size <= maxBytes) return { blob, width, height, ext };
   }
   throw new Error('Image trop lourde, même compressée.');
 }

@@ -57,6 +57,15 @@ describe('productInputSchema', () => {
     expect(errorsOf(base({ variants: [{ ...base().variants[0], size: '2.5', label: '2,5 ml' }] }))).toEqual({});
   });
 
+  it('accepte une photo JPEG (Safari, qui n’encode pas le WebP)', () => {
+    expect(errorsOf(base({ images: [{ ...IMAGE, storagePath: IMAGE.storagePath.replace('.webp', '.jpg') }] }))).toEqual({});
+  });
+
+  it('refuse une autre extension que WebP ou JPEG', () => {
+    const errors = errorsOf(base({ images: [{ ...IMAGE, storagePath: IMAGE.storagePath.replace('.webp', '.png') }] }));
+    expect(errors['images.0.storagePath']).toBeDefined();
+  });
+
   it('refuse un chemin d’image qui ne vient pas de notre envoi signé', () => {
     const errors = errorsOf(base({ images: [{ ...IMAGE, storagePath: '../../autre-bucket/x.webp' }] }));
     expect(errors['images.0.storagePath']).toBeDefined();

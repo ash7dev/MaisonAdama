@@ -14,11 +14,16 @@ export const MAX_SOURCE_IMAGE_BYTES = 25 * 1024 * 1024;
 export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 export const MAX_PRODUCT_IMAGES = 12;
 
-/** catalog/<année>/<uuid>.webp — seul format de chemin accepté par le serveur. */
-export const PRODUCT_IMAGE_PATH = /^catalog\/\d{4}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.webp$/;
+/** catalog/<année>/<uuid>.webp (ou .jpg, Safari) — seul format de chemin accepté par le serveur. */
+export const PRODUCT_IMAGE_PATH = /^catalog\/\d{4}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(webp|jpg)$/;
 
-export function newProductImagePath(uuid: string, now = new Date()): string {
-  return `catalog/${now.getUTCFullYear()}/${uuid}.webp`;
+/** Extensions produites par la compression du navigateur. */
+export const IMAGE_EXTENSIONS = ['webp', 'jpg'] as const;
+export type ImageExtension = (typeof IMAGE_EXTENSIONS)[number];
+export const isImageExtension = (v: unknown): v is ImageExtension => IMAGE_EXTENSIONS.includes(v as ImageExtension);
+
+export function newProductImagePath(uuid: string, ext: ImageExtension = 'webp', now = new Date()): string {
+  return `catalog/${now.getUTCFullYear()}/${uuid}.${ext}`;
 }
 
 /** URL publique (CDN Supabase) d'une photo, ou null si aucun chemin. */

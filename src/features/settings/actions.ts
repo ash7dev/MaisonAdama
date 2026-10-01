@@ -11,7 +11,7 @@ import { toDomainError } from '@/lib/db-errors';
 import { DomainError } from '@/lib/errors';
 import { prisma } from '@/lib/prisma';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { PRODUCT_BUCKET } from '@/lib/supabase/storage';
+import { isImageExtension, PRODUCT_BUCKET } from '@/lib/supabase/storage';
 import { STORE_SETTINGS_TAG } from './index';
 import {
   deliveryZoneSchema,
@@ -86,9 +86,9 @@ export async function saveStoreInfoAction(input: StoreInfoInput, expectedUpdated
 
 export type QrUploadTicket = { ok: true; path: string; signedUrl: string } | { ok: false; error: string };
 
-export async function createWaveQrUploadAction(): Promise<QrUploadTicket> {
+export async function createWaveQrUploadAction(ext: unknown = 'webp'): Promise<QrUploadTicket> {
   await requireAdmin();
-  const path = `catalog/settings/wave-qr-${randomUUID()}.webp`;
+  const path = `catalog/settings/wave-qr-${randomUUID()}.${isImageExtension(ext) ? ext : 'webp'}`;
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.storage.from(PRODUCT_BUCKET).createSignedUploadUrl(path);
   if (error || !data) {

@@ -10,7 +10,7 @@ import { isUniqueViolation, toDomainError } from '@/lib/db-errors';
 import { DomainError } from '@/lib/errors';
 import { prisma } from '@/lib/prisma';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { PRODUCT_BUCKET, PRODUCT_IMAGE_PATH, newProductImagePath } from '@/lib/supabase/storage';
+import { PRODUCT_BUCKET, PRODUCT_IMAGE_PATH, isImageExtension, newProductImagePath } from '@/lib/supabase/storage';
 import { productInputSchema, toFieldErrors, type FieldErrors } from '../schemas';
 import { createProduct, ProductFieldError, type CreatedProduct } from '../services/create-product';
 import { changeProductStatus, type ProductStatusChange } from '../services/product-status';
@@ -95,9 +95,9 @@ export type ImageUploadTicket = { ok: true; path: string; signedUrl: string } | 
  * Délivre une URL d'envoi à usage unique, pour un chemin choisi par le SERVEUR.
  * Supabase revérifie de son côté que l'utilisateur est un admin actif (RLS).
  */
-export async function createProductImageUploadAction(): Promise<ImageUploadTicket> {
+export async function createProductImageUploadAction(ext: unknown = 'webp'): Promise<ImageUploadTicket> {
   await requireAdmin();
-  const path = newProductImagePath(randomUUID());
+  const path = newProductImagePath(randomUUID(), isImageExtension(ext) ? ext : 'webp');
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.storage.from(PRODUCT_BUCKET).createSignedUploadUrl(path);
   if (error || !data) {

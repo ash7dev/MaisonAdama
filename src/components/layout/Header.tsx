@@ -179,7 +179,7 @@ export default function Header({ whatsappHref, universCounts = {} }: HeaderProps
             </ul>
           </nav>
 
-          {/* Actions — sur mobile, le panier vit dans la barre basse */}
+          {/* Actions — mobile : recherche et panier ; ordinateur : recherche, WhatsApp, panier */}
           <div className="ml-auto flex shrink-0 items-center gap-1 lg:ml-0">
             <button
               type="button"
@@ -200,11 +200,29 @@ export default function Header({ whatsappHref, universCounts = {} }: HeaderProps
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="Écrire sur WhatsApp (nouvel onglet)"
-                className="grid size-11 place-items-center rounded-full bg-oud text-sur-oud transition-colors duration-150 hover:bg-oud-hover lg:bg-transparent lg:text-oud lg:hover:bg-sable"
+                className="hidden size-11 place-items-center rounded-full text-oud transition-colors duration-150 hover:bg-sable lg:grid"
               >
                 <MessageCircle className="size-[19px]" strokeWidth={1.6} aria-hidden="true" />
               </a>
             )}
+
+            {/* Panier (mobile) : pastille ronde, nombre d'articles en or */}
+            <Link
+              href="/panier"
+              aria-label={cartLabel(cartCount)}
+              className="relative grid size-11 place-items-center rounded-full bg-oud text-sur-oud transition-colors duration-150 hover:bg-oud-hover lg:hidden"
+            >
+              <ShoppingBag className="size-[19px]" strokeWidth={1.6} aria-hidden="true" />
+              {cartCount > 0 && (
+                <span
+                  key={cartCount} // relance l'animation à chaque ajout
+                  aria-hidden="true"
+                  className="absolute -right-0.5 -top-0.5 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-or px-1 text-[0.625rem] font-bold tabular-nums text-encre ring-2 ring-lin motion-safe:animate-pop"
+                >
+                  {cartCount > 9 ? '9+' : cartCount}
+                </span>
+              )}
+            </Link>
 
             <Link
               href="/panier"

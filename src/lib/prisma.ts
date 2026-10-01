@@ -11,12 +11,17 @@ const globalForPrisma = globalThis as unknown as {
  * réserve une connexion par client pour toute sa durée de vie : quelques
  * instances suffisent à atteindre la limite (« EMAXCONNSESSION, pool_size: 15 »).
  * Le MODE TRANSACTION (port 6543) ne prête une connexion que le temps d'une
- * requête. On y bascule donc automatiquement sur Vercel, avec pgbouncer=true
- * (pas de requêtes préparées, exigé par ce mode). Les migrations utilisent
- * DIRECT_URL et ne sont pas concernées ; en local, rien ne change.
+ * requête. On y bascule donc automatiquement sur Vercel et pendant tout build
+ * de production (qui génère des dizaines de pages en parallèle), avec
+ * pgbouncer=true (pas de requêtes préparées, exigé par ce mode). Les migrations
+ * utilisent DIRECT_URL et ne sont pas concernées ; en développement local
+ * (next dev), rien ne change.
  */
-export function runtimeDatabaseUrl(raw = process.env.DATABASE_URL, onVercel = Boolean(process.env.VERCEL)): string | undefined {
-  if (!raw || !onVercel) return raw;
+export function runtimeDatabaseUrl(
+  raw = process.env.DATABASE_URL,
+  pooled = Boolean(process.env.VERCEL) || process.env.NEXT_PHASE === 'phase-production-build',
+): string | undefined {
+  if (!raw || !pooled) return raw;
   try {
     const url = new URL(raw);
     if (!url.hostname.endsWith('.pooler.supabase.com') || url.port !== '5432') return raw;

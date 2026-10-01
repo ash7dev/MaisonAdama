@@ -76,7 +76,7 @@ export default function ImageManager({ images, onChange, error, productName }: I
       update(item.key, { status: 'preparing', progress: 0, error: undefined });
       const compressed = await compressImage(item.file!, MAX_UPLOAD_BYTES);
 
-      const ticket = await createProductImageUploadAction();
+      const ticket = await createProductImageUploadAction(compressed.ext);
       if (!ticket.ok) throw new Error(ticket.error);
 
       update(item.key, { status: 'uploading', width: compressed.width, height: compressed.height });

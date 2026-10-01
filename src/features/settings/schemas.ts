@@ -62,7 +62,7 @@ export const storeInfoSchema = z.object({
 });
 export type StoreInfoInput = z.input<typeof storeInfoSchema>;
 
-export const WAVE_QR_PATH = /^catalog\/settings\/wave-qr-[0-9a-f-]{36}\.webp$/;
+export const WAVE_QR_PATH = /^catalog\/settings\/wave-qr-[0-9a-f-]{36}\.(webp|jpg)$/;
 
 /** Lien marchand Wave Business, rangé sous sa forme canonique (sans montant). */
 export const WAVE_LINK = /^https:\/\/pay\.wave\.com\/m\/[A-Za-z0-9_-]+\/c\/[a-z]{2}\/$/;

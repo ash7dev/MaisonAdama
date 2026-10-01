@@ -52,7 +52,7 @@ export default function WavePaymentForm({ settings }: { settings: AdminStoreSett
     setUpload({ status: 'working', progress: 0, preview });
     try {
       const compressed = await compressImage(file, MAX_UPLOAD_BYTES);
-      const ticket = await createWaveQrUploadAction();
+      const ticket = await createWaveQrUploadAction(compressed.ext);
       if (!ticket.ok) throw new Error(ticket.error);
       await uploadToSignedUrl(ticket.signedUrl, compressed.blob, (progress) => setUpload({ status: 'working', progress, preview }));
       discardDraftQr(qr);
