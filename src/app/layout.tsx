@@ -37,10 +37,15 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
+  // Pas de zoom automatique quand on touche un champ (iOS zoome sous 16 px).
+  // Le zoom à deux doigts reste possible sur iPhone (accessibilité).
+  maximumScale: 1,
   // Plein écran sur iPhone : les zones sûres sont gérées (barre du bas, etc.).
   viewportFit: 'cover',
   themeColor: '#F1E9DB',
 };
+
+const RELOAD_TOP = `try{var n=performance.getEntriesByType('navigation')[0];if(n&&n.type==='reload'&&'scrollRestoration'in history){history.scrollRestoration='manual';window.scrollTo(0,0);addEventListener('load',function(){setTimeout(function(){history.scrollRestoration='auto'},0)})}}catch(e){}`;
 
 export default function RootLayout({
   children,
@@ -49,6 +54,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="fr" className={`${marcellus.variable} ${schibsted.variable}`} suppressHydrationWarning>
+      <head>
+        {/* Rechargement : la page repart en haut. Sinon le navigateur rétablit l'ancienne
+            position sur l'écran de chargement, plus court que la page, et tombe sur le
+            footer. Le bouton Retour garde sa position (restauration rétablie après). */}
+        <script dangerouslySetInnerHTML={{ __html: RELOAD_TOP }} />
+      </head>
       {/* Header et footer : dans (storefront)/layout.tsx, pour ne pas habiller l'admin. */}
       <body suppressHydrationWarning>
         {children}
