@@ -3,13 +3,14 @@
 import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ChevronDown, ChevronLeft, Share2, ShoppingBag } from 'lucide-react';
+import { ChevronDown, ChevronLeft, Maximize2, Share2, ShoppingBag } from 'lucide-react';
 import { productImageUrl } from '@/lib/supabase/storage';
 import { useCartCount } from '@/features/cart/hooks/use-cart-count';
 import { cartLabel } from '@/components/layout/nav-config';
 import type { ShopProductDetail } from '../../queries';
 import ProductVisual, { NIGHT_TONE } from '../ProductVisual';
 import { AddButton, PriceBlock, VariantPicker } from './purchase';
+import PhotoLightbox from './PhotoLightbox';
 
 const DURATION = 5000;
 
@@ -25,8 +26,9 @@ async function share(product: ShopProductDetail) {
 /**
  * Mobile : la fiche s'ouvre en Story plein écran. Les photos défilent seules
  * (5 s, pause si la Story n'est plus visible ou sur appui long), un toucher à
- * gauche / droite change de photo. La carte en verre dépoli porte l'achat ;
- * on glisse vers le haut pour les détails.
+ * gauche / droite change de photo, au centre il l'ouvre en plein écran
+ * (visionneuse avec zoom). La carte en verre dépoli porte l'achat ; on glisse
+ * vers le haut pour les détails.
  */
 export default function StoryHero({ product }: { product: ShopProductDetail }) {
   const count = Math.max(1, product.allImages.length);
@@ -34,9 +36,11 @@ export default function StoryHero({ product }: { product: ShopProductDetail }) {
   const [elapsed, setElapsed] = useState(0);
   const [held, setHeld] = useState(false);
   const [visible, setVisible] = useState(true);
+  const [lightbox, setLightbox] = useState<number | null>(null);
+  const hasPhotos = product.allImages.length > 0;
   const ref = useRef<HTMLElement>(null);
   const cartCount = useCartCount();
-  const playing = count > 1 && !held && visible;
+  const playing = count > 1 && !held && visible && lightbox === null;
 
   useEffect(() => {
     const el = ref.current;
@@ -82,22 +86,14 @@ export default function StoryHero({ product }: { product: ShopProductDetail }) {
         <span aria-hidden="true" className="absolute inset-0 bg-[linear-gradient(180deg,rgb(23_16_10/0.55)_0%,transparent_20%,transparent_40%,rgb(23_16_10/0.55)_100%)]" />
       </div>
 
-      {/* Zones de toucher (au-dessus de la carte) */}
-      {count > 1 && (
+      {/* Zones de toucher (au-dessus de la carte) : gauche / centre = agrandir / droite */}
+      {(count > 1 || hasPhotos) && (
         <div className="absolute inset-x-0 top-28 bottom-[52%] flex">
-          {[-1, 1].map((step) => (
-            <button
-              key={step}
-              type="button"
-              aria-label={step < 0 ? 'Photo précédente' : 'Photo suivante'}
-              onClick={() => go(step)}
-              onPointerDown={() => setHeld(true)}
-              onPointerUp={() => setHeld(false)}
-              onPointerLeave={() => setHeld(false)}
-              onContextMenu={(e) => e.preventDefault()}
-              className="h-full flex-1"
-            />
-          ))}
+          {count > 1 && <StoryTap label="Photo précédente" className="w-[30%]" onTap={() => go(-1)} onHold={setHeld} />}
+          {hasPhotos && (
+            <button type="button" aria-label="Agrandir la photo" onClick={() => setLightbox(index)} className="h-full flex-1" />
+          )}
+          {count > 1 && <StoryTap label="Photo suivante" className="w-[30%]" onTap={() => go(1)} onHold={setHeld} />}
         </div>
       )}
 
@@ -117,6 +113,11 @@ export default function StoryHero({ product }: { product: ShopProductDetail }) {
             <ChevronLeft className="size-5" strokeWidth={2} aria-hidden="true" />
           </Link>
           <span className="flex gap-2">
+            {hasPhotos && (
+              <button type="button" onClick={() => setLightbox(index)} aria-label="Agrandir la photo" className="grid size-11 place-items-center rounded-full bg-encre/40 backdrop-blur-md">
+                <Maximize2 className="size-[18px]" strokeWidth={1.9} aria-hidden="true" />
+              </button>
+            )}
             <button type="button" onClick={() => share(product)} aria-label="Partager" className="grid size-11 place-items-center rounded-full bg-encre/40 backdrop-blur-md">
               <Share2 className="size-[18px]" strokeWidth={1.9} aria-hidden="true" />
             </button>
@@ -161,6 +162,23 @@ export default function StoryHero({ product }: { product: ShopProductDetail }) {
           Description, livraison et conseils
         </a>
       </div>
+
+      {lightbox !== null && <PhotoLightbox photos={product.allImages} name={product.name} start={lightbox} onClose={() => setLightbox(null)} />}
     </section>
+  );
+}
+
+function StoryTap({ label, className, onTap, onHold }: { label: string; className: string; onTap: () => void; onHold: (held: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      onClick={onTap}
+      onPointerDown={() => onHold(true)}
+      onPointerUp={() => onHold(false)}
+      onPointerLeave={() => onHold(false)}
+      onContextMenu={(e) => e.preventDefault()}
+      className={`h-full ${className}`}
+    />
   );
 }
