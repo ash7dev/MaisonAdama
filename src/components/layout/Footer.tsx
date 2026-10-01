@@ -50,11 +50,12 @@ const COLUMNS: FooterColumn[] = [
   },
 ];
 
-const LEGAL_LINKS: FooterLink[] = [
-  { label: 'CGV', href: '/cgv' },
-  { label: 'Mentions légales', href: '/mentions-legales' },
-  { label: 'Confidentialité', href: '/confidentialite' },
-];
+/**
+ * Pages légales (CGV, mentions légales, confidentialité) : à ajouter ici dès
+ * qu'elles existent. Elles demandent les informations de l'entreprise
+ * (raison sociale, NINEA, adresse, responsable de publication).
+ */
+const LEGAL_LINKS: FooterLink[] = [];
 
 const PAYMENT_METHODS = ['Wave', 'Espèces à la livraison'];
 
@@ -295,15 +296,17 @@ export default function Footer({ whatsappNumber, contactPhone }: FooterProps) {
 
             <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1.5 text-[0.71875rem] text-sur-oud/50 lg:justify-between lg:text-[0.78125rem]">
               <p>© {year} Maison Adama Tchurayy · Dakar</p>
-              <ul className="flex gap-3.5 lg:gap-[18px]">
-                {LEGAL_LINKS.map((link) => (
-                  <li key={link.href}>
-                    <Link href={link.href} className="transition-colors duration-150 hover:text-sur-oud">
-                      {link.label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+              {LEGAL_LINKS.length > 0 && (
+                <ul className="flex gap-3.5 lg:gap-[18px]">
+                  {LEGAL_LINKS.map((link) => (
+                    <li key={link.href}>
+                      <Link href={link.href} className="transition-colors duration-150 hover:text-sur-oud">
+                        {link.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </div>
 

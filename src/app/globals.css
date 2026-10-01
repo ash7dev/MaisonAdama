@@ -228,6 +228,22 @@
     }
   }
 
+  /* Fumée du brûle-parfum (page La Maison) : une volute qui ondule et respire */
+  --animate-smoke: smoke 7s ease-in-out infinite;
+
+  @keyframes smoke {
+    0%,
+    100% {
+      opacity: 0.85;
+      transform: translateY(0) skewX(0deg);
+    }
+
+    50% {
+      opacity: 1;
+      transform: translateY(-8px) skewX(-3deg);
+    }
+  }
+
   /* ---------------------------------------------------------------------------
      MISE EN PAGE
      L'espacement Tailwind (base 4px) est conservé tel quel.
