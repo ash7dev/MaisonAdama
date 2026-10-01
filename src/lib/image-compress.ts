@@ -45,6 +45,37 @@ export async function compressImage(file: File, maxBytes: number): Promise<Compr
 }
 
 /**
+ * Raison d'un refus du stockage, en clair. Supabase répond
+ * { statusCode, error, message } : on traduit les cas connus et on garde
+ * toujours le code et le message d'origine pour le diagnostic.
+ */
+function uploadRefusal(status: number, body: string): string {
+  let detail = '';
+  try {
+    const json = JSON.parse(body) as { message?: string; error?: string };
+    detail = json.message || json.error || '';
+  } catch {
+    detail = body.slice(0, 160);
+  }
+  const d = detail.toLowerCase();
+  const why =
+    d.includes('mime') || d.includes('content type')
+      ? 'format refusé par le stockage'
+      : d.includes('size') || d.includes('too large') || status === 413
+        ? 'photo trop lourde pour le stockage'
+        : d.includes('row-level security') || d.includes('unauthorized') || status === 403
+          ? 'permission refusée par le stockage (droits admin)'
+          : d.includes('exp') || d.includes('jwt') || d.includes('signature')
+            ? 'autorisation d’envoi expirée, réessayez'
+            : d.includes('exists') || d.includes('duplicate') || status === 409
+              ? 'une photo porte déjà ce nom, réessayez'
+              : d.includes('bucket') || status === 404
+                ? 'espace de stockage introuvable'
+                : 'refus du stockage';
+  return `Envoi refusé (${status}) : ${why}${detail ? ` — « ${detail} »` : ''}`;
+}
+
+/**
  * Envoi vers une URL signée Supabase Storage, avec progression.
  * (fetch ne sait pas suivre la progression d'un envoi : XMLHttpRequest, si.)
  */
@@ -62,7 +93,11 @@ export function uploadToSignedUrl(
     xhr.setRequestHeader('cache-control', 'max-age=31536000');
     xhr.setRequestHeader('x-upsert', 'false');
     xhr.upload.onprogress = (event) => event.lengthComputable && onProgress(event.loaded / event.total);
-    xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`Envoi refusé (${xhr.status})`)));
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) return resolve();
+      console.error('Envoi refusé par le stockage', xhr.status, xhr.responseText);
+      reject(new Error(uploadRefusal(xhr.status, xhr.responseText)));
+    };
     xhr.onerror = () => reject(new Error('Connexion interrompue pendant l’envoi.'));
     xhr.onabort = () => reject(new DOMException('Envoi annulé', 'AbortError'));
     signal?.addEventListener('abort', () => xhr.abort());
