@@ -2,6 +2,7 @@ import { cache } from 'react';
 import { redirect } from 'next/navigation';
 import type { AdminRole } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
+import { withDbRetry } from '@/lib/db-retry';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 export type AdminSession = {
@@ -28,10 +29,12 @@ export const getAdminSession = cache(async (): Promise<AdminSession | null> => {
 
   const [{ data }, profile] = await Promise.all([
     supabase.auth.getUser(),
-    prisma.adminProfile.findUnique({
-      where: { id: userId },
-      select: { fullName: true, role: true, isActive: true },
-    }),
+    withDbRetry(() =>
+      prisma.adminProfile.findUnique({
+        where: { id: userId },
+        select: { fullName: true, role: true, isActive: true },
+      }),
+    ),
   ]);
   const user = data.user;
   if (!user?.email || user.id !== userId || !profile?.isActive) return null;

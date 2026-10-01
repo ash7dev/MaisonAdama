@@ -1,6 +1,7 @@
 import { unstable_cache } from 'next/cache';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
+import { withDbRetry } from '@/lib/db-retry';
 import { contenanceLabel, parseContenance, SEARCH_SYNONYMS, searchTokens, SHOP_PAGE_SIZE, type ShopParams } from './params';
 
 /**
@@ -198,7 +199,7 @@ async function queryProducts(p: ShopParams) {
 }
 
 export const listShopProducts = (p: ShopParams) =>
-  unstable_cache(() => queryProducts(p), ['shop-products', JSON.stringify(p)], { revalidate: 60, tags: [SHOP_TAG] })();
+  unstable_cache(() => withDbRetry(() => queryProducts(p)), ['shop-products', JSON.stringify(p)], { revalidate: 60, tags: [SHOP_TAG] })();
 
 export type ShopListing = Awaited<ReturnType<typeof queryProducts>>;
 
@@ -277,7 +278,7 @@ function budgetTiers(q1: number | null, q2: number | null) {
   ] as Array<{ key: string; label: string; min: number | undefined; max: number | undefined }>;
 }
 
-export const getShopFacets = unstable_cache(queryFacets, ['shop-facets'], { revalidate: 300, tags: [SHOP_TAG] });
+export const getShopFacets = unstable_cache(() => withDbRetry(queryFacets), ['shop-facets'], { revalidate: 300, tags: [SHOP_TAG] });
 
 export type ShopFacets = Awaited<ReturnType<typeof queryFacets>>;
 
@@ -295,7 +296,7 @@ async function queryFamilyWheel() {
      ORDER BY f.position, f.name`;
 }
 
-export const getFamilyWheel = unstable_cache(queryFamilyWheel, ['shop-family-wheel'], { revalidate: 300, tags: [SHOP_TAG] });
+export const getFamilyWheel = unstable_cache(() => withDbRetry(queryFamilyWheel), ['shop-family-wheel'], { revalidate: 300, tags: [SHOP_TAG] });
 
 export type WheelFamily = Awaited<ReturnType<typeof queryFamilyWheel>>[number];
 
@@ -391,7 +392,7 @@ async function queryProductDetail(slug: string): Promise<ShopProductDetail | nul
 }
 
 export const getShopProduct = (slug: string) =>
-  unstable_cache(() => queryProductDetail(slug), ['shop-product', slug], { revalidate: 60, tags: [SHOP_TAG] })();
+  unstable_cache(() => withDbRetry(() => queryProductDetail(slug)), ['shop-product', slug], { revalidate: 60, tags: [SHOP_TAG] })();
 
 /** « Vous aimerez aussi » : même univers d'abord, complété par le reste de la boutique. */
 export async function getRelatedProducts(product: ShopProductDetail, count = 4): Promise<ShopProduct[]> {
@@ -421,7 +422,7 @@ export type ShopCollection = { slug: string; name: string; description: string |
 export const getCollection = (slug: string) =>
   unstable_cache(
     async (): Promise<ShopCollection | null> =>
-      prisma.collection.findFirst({ where: { slug, isActive: true }, select: { slug: true, name: true, description: true } }),
+      withDbRetry(() => prisma.collection.findFirst({ where: { slug, isActive: true }, select: { slug: true, name: true, description: true } })),
     ['shop-collection', slug],
     { revalidate: 300, tags: [SHOP_TAG] },
   )();

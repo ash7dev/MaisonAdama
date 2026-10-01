@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
+import { withDbRetry } from '@/lib/db-retry';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { requireAdmin } from './require-admin';
 import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from './password-policy';
@@ -48,10 +49,20 @@ export async function loginAction(_previous: LoginState, formData: FormData): Pr
     return { error: 'E-mail ou mot de passe incorrect.', email };
   }
 
-  const profile = await prisma.adminProfile.findUnique({
-    where: { id: data.user.id },
-    select: { isActive: true },
-  });
+  let profile: { isActive: boolean } | null;
+  try {
+    profile = await withDbRetry(() =>
+      prisma.adminProfile.findUnique({
+        where: { id: data.user.id },
+        select: { isActive: true },
+      }),
+    );
+  } catch (cause) {
+    // Base momentanément injoignable : on ne laisse pas une session à moitié ouverte.
+    console.error('loginAction : profil admin illisible', cause);
+    await supabase.auth.signOut({ scope: 'local' });
+    return { error: 'Connexion momentanément impossible. Réessayez dans quelques secondes.', email };
+  }
   if (!profile?.isActive) {
     await supabase.auth.signOut();
     return { error: 'Ce compte n’a pas accès à l’administration.', email };

@@ -2,6 +2,7 @@ import { cache } from 'react';
 import { unstable_cache } from 'next/cache';
 import { OrderStatus, PaymentMethod, PaymentStatus } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
+import { withDbRetry } from '@/lib/db-retry';
 
 export type AdminCounts = {
   /** Commandes EN_ATTENTE : à confirmer par téléphone ou WhatsApp. */
@@ -18,7 +19,7 @@ export const ADMIN_COUNTS_TAG = 'admin-counts';
 /** Compteurs de la navigation et du tableau de bord. */
 export const getAdminCounts = cache(async (): Promise<AdminCounts> => {
   return unstable_cache(
-    async () => {
+    async () => withDbRetry(async () => {
       const waveWhere = {
         paymentMethod: PaymentMethod.WAVE,
         paymentStatus: PaymentStatus.NON_PAYE,
@@ -43,7 +44,7 @@ export const getAdminCounts = cache(async (): Promise<AdminCounts> => {
         waveToVerifyAmount: wave._sum.total ?? 0,
         lowStock: lowStockRows[0]?.count ?? 0,
       };
-    },
+    }),
     ['admin-counts-summary'],
     { revalidate: 30, tags: [ADMIN_COUNTS_TAG] }
   )();

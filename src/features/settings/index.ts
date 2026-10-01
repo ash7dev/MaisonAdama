@@ -1,5 +1,6 @@
 import { unstable_cache } from 'next/cache';
 import { prisma } from '@/lib/prisma';
+import { withDbRetry } from '@/lib/db-retry';
 
 export const STORE_SETTINGS_TAG = 'store-settings';
 
@@ -16,7 +17,7 @@ export type PublicStoreSettings = {
 const readStoreSettings = unstable_cache(
   // Une erreur remonte : elle n'est jamais mise en cache (voir getStoreSettings).
   async (): Promise<PublicStoreSettings | null> =>
-    prisma.storeSettings.findUnique({
+    withDbRetry(() => prisma.storeSettings.findUnique({
       where: { id: 1 },
       select: {
         storeName: true,
@@ -27,7 +28,7 @@ const readStoreSettings = unstable_cache(
         waveQrImagePath: true,
         wavePaymentLink: true,
       },
-    }),
+    })),
   ['store-settings'],
   { revalidate: 300, tags: [STORE_SETTINGS_TAG] },
 );

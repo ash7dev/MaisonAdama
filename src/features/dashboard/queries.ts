@@ -2,6 +2,7 @@ import { cache } from 'react';
 import { unstable_cache } from 'next/cache';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
+import { withDbRetry } from '@/lib/db-retry';
 import { ADMIN_COUNTS_TAG, getAdminCounts } from '@/features/admin/queries';
 import { getCustomerOverview } from '@/features/customers/queries';
 import { dayKey, resolvePeriod, startOfDay, type DashboardPeriod, type DashboardPeriodKey } from './period';
@@ -552,7 +553,7 @@ async function buildDashboard(periodKey: DashboardPeriodKey) {
 export type DashboardData = Awaited<ReturnType<typeof buildDashboard>>;
 
 export const getDashboard = cache((periodKey: DashboardPeriodKey) =>
-  unstable_cache(() => buildDashboard(periodKey), ['admin-dashboard', periodKey], {
+  unstable_cache(() => withDbRetry(() => buildDashboard(periodKey)), ['admin-dashboard', periodKey], {
     revalidate: 30,
     tags: [DASHBOARD_TAG, ADMIN_COUNTS_TAG],
   })(),
