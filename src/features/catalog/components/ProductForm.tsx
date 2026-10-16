@@ -20,6 +20,7 @@ import VariantsEditor, { newVariant, type VariantDraft } from './VariantsEditor'
 import KeywordsInput from './KeywordsInput';
 import FamilyQuickAdd from './FamilyQuickAdd';
 import { PendingIcon } from '@/components/ui/link-pending';
+import StoryStudio from '@/features/stories/components/StoryStudio';
 
 const GENDERS: Array<{ value: Gender | ''; label: string }> = [
   { value: Gender.FEMME, label: 'Femme' },
@@ -317,6 +318,7 @@ function ProductFormInner({ options, product, saved, onReset }: ProductFormProps
             <Plus className="size-4" strokeWidth={2} aria-hidden="true" />
             Ajouter un autre produit
           </button>
+          {product.isPublished && <StoryStudio slug={product.slug} name={product.name} className="h-12 px-6" />}
           {product.isPublished && (
             <Link
               href={`/produits/${product.slug}`}
@@ -430,14 +432,17 @@ function ProductFormInner({ options, product, saved, onReset }: ProductFormProps
               </p>
             </div>
             {product.isPublished && (
-              <Link
-                href={`/produits/${product.slug}`}
-                target="_blank"
-                className="flex h-11 items-center gap-2 rounded-full border border-filet-fort px-4 text-sm font-medium text-oud transition-colors duration-150 hover:bg-lin"
-              >
-                Voir dans la boutique
-                <ExternalLink className="size-4" strokeWidth={1.8} aria-hidden="true" />
-              </Link>
+              <div className="flex flex-wrap gap-2">
+                <StoryStudio slug={product.slug} name={product.name} />
+                <Link
+                  href={`/produits/${product.slug}`}
+                  target="_blank"
+                  className="flex h-11 items-center gap-2 rounded-full border border-filet-fort px-4 text-sm font-medium text-oud transition-colors duration-150 hover:bg-lin"
+                >
+                  Voir dans la boutique
+                  <ExternalLink className="size-4" strokeWidth={1.8} aria-hidden="true" />
+                </Link>
+              </div>
             )}
           </div>
         ) : (

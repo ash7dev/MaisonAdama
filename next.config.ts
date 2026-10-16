@@ -2,6 +2,10 @@ import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // Polices des stories (lues par fs dans la route) : à embarquer dans la fonction Vercel.
+  outputFileTracingIncludes: {
+    '/api/admin/story/[slug]': ['./src/features/stories/fonts/**'],
+  },
   // Dossier de compilation : permet un `next build` de vérification sans casser
   // le serveur de développement qui utilise `.next` (NEXT_DIST_DIR=.next-build).
   distDir: process.env.NEXT_DIST_DIR || '.next',
