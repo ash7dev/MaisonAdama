@@ -102,7 +102,7 @@ export default function Footer({ whatsappNumber, contactPhone }: FooterProps) {
             />
             <span className="flex flex-col gap-1.5">
               <span className="font-display text-[1.3125rem] leading-none text-oud">Maison Adama</span>
-              <span className="text-[0.5625rem] leading-none tracking-[0.32em] text-or-profond">TCHURAYY · DAKAR</span>
+              <span className="text-[0.5625rem] leading-none tracking-[0.32em] text-or-profond">TCHURAYY</span>
             </span>
           </Link>
 
@@ -295,7 +295,7 @@ export default function Footer({ whatsappNumber, contactPhone }: FooterProps) {
             </div>
 
             <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1.5 text-[0.71875rem] text-sur-oud/50 lg:justify-between lg:text-[0.78125rem]">
-              <p>© {year} Maison Adama Tchurayy · Dakar</p>
+              <p>© {year} Maison Adama Tchurayy</p>
               {LEGAL_LINKS.length > 0 && (
                 <ul className="flex gap-3.5 lg:gap-[18px]">
                   {LEGAL_LINKS.map((link) => (

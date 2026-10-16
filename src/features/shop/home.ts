@@ -1,6 +1,6 @@
 import type { ShopParams } from './params';
 import { SHOP_CATEGORIES } from '@/components/layout/nav-config';
-import { getShopFacets, listShopProducts, type ShopProduct } from './queries';
+import { getFamilyWheel, getShopFacets, listShopProducts, type ShopProduct } from './queries';
 
 
 /**
@@ -46,6 +46,8 @@ export type HomeData = {
   /** Les cinq rayons, toujours tous présents (un rayon vide a son état vide). */
   rayons: Rayon[];
   tickets: Ticket[];
+  /** Phrase de chaque famille, par nom (gérées dans Paramètres). */
+  familyHints: Record<string, string>;
 };
 
 const num = new Intl.NumberFormat('fr-FR');
@@ -55,7 +57,8 @@ const dayMonth = (iso: string) => {
 };
 
 export async function getHomeData(now = new Date()): Promise<HomeData> {
-  const [facets, all, newest, gifts, ...perUnivers] = await Promise.all([
+  const [wheel, facets, all, newest, gifts, ...perUnivers] = await Promise.all([
+    getFamilyWheel().catch(() => []),
     getShopFacets(),
     // Jusqu'à 96 créations : de quoi faire tourner les niches sur tout le catalogue.
     listShopProducts({ ...BASE, page: 4 }),
@@ -147,7 +150,7 @@ export async function getHomeData(now = new Date()): Promise<HomeData> {
     },
   ];
 
-  return { total: facets.total, niches, univers, featured, tonight, rayons, tickets };
+  return { total: facets.total, niches, univers, featured, tonight, rayons, tickets, familyHints: Object.fromEntries(wheel.filter((f) => f.hint).map((f) => [f.name, f.hint!])) };
 }
 
 /**

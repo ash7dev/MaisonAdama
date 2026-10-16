@@ -7,7 +7,6 @@ import { cn } from '@/lib/utils';
 import type { WheelFamily } from '../queries';
 import { findPerfumesAction, type PerfumeSelection } from '../actions';
 import ShopCard from './ShopCard';
-import { FAMILY_HINTS } from '../families';
 
 
 export type Budget = { key: string; label: string; min: number | undefined; max: number | undefined };
@@ -285,7 +284,7 @@ export default function PerfumeConversation({
                   )}
                 >
                   <span className="font-display text-[1.0625rem] leading-tight">{f.name}</span>
-                  <span className={cn('text-[0.6875rem] leading-snug', on ? 'text-sur-oud/75' : 'text-fumee')}>{FAMILY_HINTS[f.slug] ?? `${f.count} créations`}</span>
+                  <span className={cn('text-[0.6875rem] leading-snug', on ? 'text-sur-oud/75' : 'text-fumee')}>{f.hint ?? `${f.count} création${f.count > 1 ? 's' : ''}`}</span>
                   {on && <Check className="absolute right-2.5 top-2.5 size-4 text-or-clair" strokeWidth={2.4} aria-hidden="true" />}
                 </button>
               );

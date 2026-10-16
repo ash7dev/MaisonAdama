@@ -8,7 +8,6 @@ import ProductVisual, { NIGHT_TONE, shapeFor } from '../ProductVisual';
 import ShelfQuickAdd from './ShelfQuickAdd';
 import SpotlightBuy from './SpotlightBuy';
 import TonightCarousel from './TonightCarousel';
-import { FAMILY_HINTS, familySlug } from '../../families';
 
 /**
  * Page d'accueil « Les alcôves » : un mur de velours sombre où des niches en
@@ -256,7 +255,7 @@ export function EtagereWall({ data, whatsapp }: { data: HomeData; whatsapp: stri
 
 const dayLabel = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Africa/Dakar', weekday: 'long', day: 'numeric', month: 'long' });
 
-export function Spotlight({ featured, now }: { featured: NonNullable<HomeData['featured']>; now: Date }) {
+export function Spotlight({ featured, now, hints = {} }: { featured: NonNullable<HomeData['featured']>; now: Date; hints?: Record<string, string> }) {
   const { product } = featured;
   return (
     <section
@@ -304,7 +303,7 @@ export function Spotlight({ featured, now }: { featured: NonNullable<HomeData['f
               {product.families.map((f) => (
                 <li key={f} className="flex flex-col gap-0.5 rounded-2xl bg-sur-oud/[0.07] px-4 py-2.5 ring-1 ring-inset ring-or/20">
                   <span className="font-display text-base">{f}</span>
-                  {FAMILY_HINTS[familySlug(f)] && <span className="text-xs text-sur-oud/60">{FAMILY_HINTS[familySlug(f)]}</span>}
+                  {hints[f] && <span className="text-xs text-sur-oud/60">{hints[f]}</span>}
                 </li>
               ))}
             </ul>

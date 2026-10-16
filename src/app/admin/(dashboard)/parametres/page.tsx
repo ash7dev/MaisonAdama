@@ -4,6 +4,7 @@ import { getAdminSettings } from '@/features/settings/queries';
 import StoreInfoForm from '@/features/settings/components/StoreInfoForm';
 import WavePaymentForm from '@/features/settings/components/WavePaymentForm';
 import DeliveryZonesManager from '@/features/settings/components/DeliveryZonesManager';
+import FamiliesManager from '@/features/settings/components/FamiliesManager';
 import SettingsNav from '@/features/settings/components/SettingsNav';
 import ReadinessPanel, { type ReadinessItem } from '@/features/settings/components/ReadinessPanel';
 
@@ -12,7 +13,7 @@ export const metadata: Metadata = {
 };
 
 export default async function SettingsPage() {
-  const [, { settings, zones }] = await Promise.all([requireAdmin(), getAdminSettings()]);
+  const [, { settings, zones, families }] = await Promise.all([requireAdmin(), getAdminSettings()]);
 
   const activeZones = zones.filter((z) => z.isActive).length;
   const waveReady = Boolean(settings?.wavePaymentLink || settings?.waveMerchantCode || settings?.waveQrImagePath);
@@ -56,7 +57,7 @@ export default async function SettingsPage() {
     <div className="flex flex-col gap-5 px-4 pb-16 pt-6 lg:px-2 lg:pb-10 lg:pt-3">
       <header className="flex flex-col gap-2 px-1 lg:min-h-[72px] lg:justify-center">
         <h1 className="text-[1.875rem] leading-none text-encre lg:text-[2.125rem]">Paramètres</h1>
-        <p className="text-sm text-fumee">Boutique, paiement et livraison · appliqués immédiatement à la boutique.</p>
+        <p className="text-sm text-fumee">Boutique, paiement, livraison et familles olfactives · appliqués immédiatement à la boutique.</p>
       </header>
 
       <ReadinessPanel items={readiness} />
@@ -73,6 +74,7 @@ export default async function SettingsPage() {
           <StoreInfoForm settings={settings} />
           <WavePaymentForm settings={settings} />
           <DeliveryZonesManager zones={zones} />
+          <FamiliesManager families={families} />
         </div>
       </div>
     </div>

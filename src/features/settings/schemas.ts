@@ -131,6 +131,17 @@ export type DeliveryZoneInput = Omit<z.input<typeof deliveryZoneSchema>, 'region
 
 export type FieldErrors = Record<string, string>;
 
+/** Famille olfactive : un nom court et une phrase simple pour le client. */
+export const familySchema = z.object({
+  name: z.string().trim().min(2, 'Nommez la famille.').max(40, '40 caractères au maximum.'),
+  hint: z
+    .string()
+    .trim()
+    .max(80, '80 caractères au maximum.')
+    .transform((v) => v || null),
+});
+export type FamilyInput = z.input<typeof familySchema>;
+
 export function toFieldErrors(error: z.ZodError): FieldErrors {
   const errors: FieldErrors = {};
   for (const issue of error.issues) {

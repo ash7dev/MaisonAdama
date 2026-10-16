@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowUpRight, Smartphone, Store, Truck, UserRound } from 'lucide-react';
+import { ArrowUpRight, Flower2, Smartphone, Store, Truck, UserRound } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const SECTIONS = [
   { id: 'boutique', label: 'Boutique', icon: Store },
   { id: 'wave', label: 'Paiement Wave', icon: Smartphone },
   { id: 'livraison', label: 'Livraison', icon: Truck },
+  { id: 'familles', label: 'Familles olfactives', icon: Flower2 },
 ] as const;
 
 /**

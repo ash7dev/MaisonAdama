@@ -18,6 +18,7 @@ import { ChoiceChip, describe, Field, inputClass, inputState, Section } from './
 import ImageManager, { type ImageItem } from './ImageManager';
 import VariantsEditor, { newVariant, type VariantDraft } from './VariantsEditor';
 import KeywordsInput from './KeywordsInput';
+import FamilyQuickAdd from './FamilyQuickAdd';
 import { PendingIcon } from '@/components/ui/link-pending';
 
 const GENDERS: Array<{ value: Gender | ''; label: string }> = [
@@ -116,6 +117,12 @@ function ProductFormInner({ options, product, saved, onReset }: ProductFormProps
   const [shortDescription, setShortDescription] = useState(product?.shortDescription ?? '');
   const [description, setDescription] = useState(product?.description ?? '');
   const [familyIds, setFamilyIds] = useState<string[]>(product?.familyIds ?? []);
+  // Familles ajoutées depuis cette fiche (« + Nouvelle famille »), en plus des référentiels.
+  const [addedFamilies, setAddedFamilies] = useState<{ id: string; name: string }[]>([]);
+  const allFamilies = useMemo(
+    () => [...options.families, ...addedFamilies.filter((f) => !options.families.some((o) => o.id === f.id))],
+    [options.families, addedFamilies],
+  );
   const [collectionIds, setCollectionIds] = useState<string[]>(product?.collectionIds ?? []);
   const [searchKeywords, setSearchKeywords] = useState<string[]>(product?.searchKeywords ?? []);
   const [seoTitle, setSeoTitle] = useState(product?.seoTitle ?? '');
@@ -645,7 +652,7 @@ function ProductFormInner({ options, product, saved, onReset }: ProductFormProps
                 Familles olfactives <span className="font-normal text-fumee">(plusieurs possibles)</span>
               </legend>
               <div className="flex flex-wrap gap-2">
-                {options.families.map((family) => {
+                {allFamilies.map((family) => {
                   const selected = familyIds.includes(family.id);
                   return (
                     <ChoiceChip
@@ -661,6 +668,13 @@ function ProductFormInner({ options, product, saved, onReset }: ProductFormProps
                     </ChoiceChip>
                   );
                 })}
+                <FamilyQuickAdd
+                  onAdded={(family) => {
+                    setAddedFamilies((list) => (list.some((f) => f.id === family.id) ? list : [...list, family]));
+                    setFamilyIds((ids) => (ids.includes(family.id) ? ids : [...ids, family.id]));
+                    touch('familyIds');
+                  }}
+                />
               </div>
               {errors.familyIds && <p className="text-sm text-erreur">{errors.familyIds}</p>}
             </fieldset>

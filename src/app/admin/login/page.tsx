@@ -40,7 +40,7 @@ export default async function AdminLoginPage({
           />
           <span className="flex flex-col gap-1.5">
             <span className="font-display text-[1.5rem] leading-none">Maison Adama</span>
-            <span className="text-[0.59375rem] leading-none tracking-[0.34em] text-or-clair">TCHURAYY · DAKAR</span>
+            <span className="text-[0.59375rem] leading-none tracking-[0.34em] text-or-clair">TCHURAYY</span>
           </span>
         </Link>
 

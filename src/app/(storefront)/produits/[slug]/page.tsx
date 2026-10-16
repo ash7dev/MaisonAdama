@@ -7,8 +7,7 @@ import { siteConfig } from '@/config/site';
 import { productImageUrl } from '@/lib/supabase/storage';
 import { getStoreSettings } from '@/features/settings';
 import { getActiveDeliveryZones } from '@/features/delivery';
-import { getRelatedProducts, getShopProduct } from '@/features/shop/queries';
-import { FAMILY_HINTS } from '@/features/shop/families';
+import { getFamilyWheel, getRelatedProducts, getShopProduct } from '@/features/shop/queries';
 import ProductGallery from '@/features/shop/components/product/ProductGallery';
 import StoryHero from '@/features/shop/components/product/StoryHero';
 import { BuyPanel, ProductPurchaseProvider, StickyBuyBar } from '@/features/shop/components/product/purchase';
@@ -54,7 +53,13 @@ export default async function ProductPage({ params }: PageProps) {
   const product = await getShopProduct(slug);
   if (!product) notFound();
 
-  const [related, zones, settings] = await Promise.all([getRelatedProducts(product), getActiveDeliveryZones(), getStoreSettings()]);
+  const [related, zones, settings, families] = await Promise.all([
+    getRelatedProducts(product),
+    getActiveDeliveryZones(),
+    getStoreSettings(),
+    getFamilyWheel().catch(() => []),
+  ]);
+  const hints = new Map(families.map((f) => [f.slug, f.hint]));
   const subtitle = [product.categoryName, product.concentration && CONCENTRATION[product.concentration], product.gender && GENDER[product.gender]].filter(Boolean).join(' · ');
 
   // Données structurées : prix et disponibilité dans les résultats Google.
@@ -76,7 +81,7 @@ export default async function ProductPage({ params }: PageProps) {
     })),
   };
 
-  const familyCards = product.families.map((name, i) => ({ name, hint: FAMILY_HINTS[product.familySlugs[i]] }));
+  const familyCards = product.families.map((name, i) => ({ name, hint: hints.get(product.familySlugs[i]) ?? undefined }));
 
   return (
     <ProductPurchaseProvider product={product} whatsappNumber={settings?.whatsappNumber ?? null}>

@@ -287,12 +287,12 @@ export type ShopFacets = Awaited<ReturnType<typeof queryFacets>>;
 // -----------------------------------------------------------------------------
 
 async function queryFamilyWheel() {
-  return prisma.$queryRaw<{ slug: string; name: string; count: number }[]>`
-    SELECT f.slug, f.name, count(DISTINCT p.id)::int AS count
+  return prisma.$queryRaw<{ slug: string; name: string; hint: string | null; count: number }[]>`
+    SELECT f.slug, f.name, f.hint, count(DISTINCT p.id)::int AS count
       FROM olfactory_families f
       LEFT JOIN product_olfactory_families pf ON pf.family_id = f.id
       LEFT JOIN products p ON p.id = pf.product_id AND p.is_published AND NOT p.is_archived
-     GROUP BY f.slug, f.name, f.position
+     GROUP BY f.slug, f.name, f.hint, f.position
      ORDER BY f.position, f.name`;
 }
 

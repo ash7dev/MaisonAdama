@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 
 /** Tout ce que la page Paramètres affiche, en une fois. */
 export const getAdminSettings = cache(async () => {
-  const [settings, zones] = await Promise.all([
+  const [settings, zones, families] = await Promise.all([
     prisma.storeSettings.findUnique({ where: { id: 1 } }),
     prisma.deliveryZone.findMany({
       orderBy: [{ position: 'asc' }, { name: 'asc' }],
@@ -19,14 +19,20 @@ export const getAdminSettings = cache(async () => {
         _count: { select: { orders: true } },
       },
     }),
+    prisma.olfactoryFamily.findMany({
+      orderBy: [{ position: 'asc' }, { name: 'asc' }],
+      select: { id: true, name: true, slug: true, hint: true, _count: { select: { products: true } } },
+    }),
   ]);
 
   return {
     settings: settings && { ...settings, updatedAt: settings.updatedAt.toISOString() },
     zones: zones.map(({ _count, updatedAt, ...zone }) => ({ ...zone, orders: _count.orders, updatedAt: updatedAt.toISOString() })),
+    families: families.map(({ _count, ...family }) => ({ ...family, products: _count.products })),
   };
 });
 
 export type AdminSettings = Awaited<ReturnType<typeof getAdminSettings>>;
 export type AdminStoreSettings = NonNullable<AdminSettings['settings']>;
 export type AdminDeliveryZone = AdminSettings['zones'][number];
+export type AdminFamily = AdminSettings['families'][number];

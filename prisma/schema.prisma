@@ -16,7 +16,7 @@
 // =============================================================================
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
   // Relations chargées en UNE requête SQL (jointures) plutôt qu'une par relation :
   // chaque aller-retour vers la base coûte ~80 ms depuis Dakar.
   previewFeatures = ["relationJoins"]
@@ -246,10 +246,12 @@ model ProductVariant {
 }
 
 model OlfactoryFamily {
-  id       String @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  name     String @unique @db.VarChar(60)
-  slug     String @unique @db.VarChar(80)
-  position Int    @default(0)
+  id       String  @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  name     String  @unique @db.VarChar(60)
+  slug     String  @unique @db.VarChar(80)
+  /// Phrase simple affichée au client (« Cèdre, santal, oud »)
+  hint     String? @db.VarChar(80)
+  position Int     @default(0)
 
   products ProductOlfactoryFamily[]
 
@@ -454,8 +456,8 @@ model Order {
   refundedAt           DateTime?     @map("refunded_at") @db.Timestamptz(3)
 
   // --- Snapshot client ---
-  customerName  String @map("customer_name") @db.VarChar(120)
-  customerPhone String @map("customer_phone") @db.VarChar(20)
+  customerName  String  @map("customer_name") @db.VarChar(120)
+  customerPhone String  @map("customer_phone") @db.VarChar(20)
   /// Facultatif, tel que saisi au checkout
   customerEmail String? @map("customer_email") @db.VarChar(160)
 

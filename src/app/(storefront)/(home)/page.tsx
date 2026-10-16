@@ -26,7 +26,7 @@ export default async function HomePage() {
     <>
       <EtagereWall data={data} whatsapp={wa} />
       <div className="mx-auto flex max-w-shop flex-col gap-14 px-4 pb-16 pt-12 lg:gap-20 lg:px-10 lg:pb-20 lg:pt-20">
-        {data.featured && <Spotlight featured={data.featured} now={now} />}
+        {data.featured && <Spotlight featured={data.featured} now={now} hints={data.familyHints} />}
         {data.tonight.length > 0 && <Tonight products={data.tonight} moment={momentOfDay(now)} total={data.total} />}
         <Billetterie tickets={data.tickets} open={!empty} />
         {!empty && <Rayons rayons={data.rayons} whatsapp={wa} />}

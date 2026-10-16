@@ -6,6 +6,9 @@ import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { requireAdmin } from '@/features/auth/require-admin';
 import { DELIVERY_ZONES_TAG } from '@/features/delivery';
+import { CATALOG_OPTIONS_TAG } from '@/features/catalog/queries/get-product-form-options';
+import { SHOP_TAG } from '@/features/shop/queries';
+import { slugify } from '@/lib/slug';
 import { withAdmin } from '@/lib/db-context';
 import { toDomainError } from '@/lib/db-errors';
 import { DomainError } from '@/lib/errors';
@@ -15,6 +18,8 @@ import { isImageExtension, PRODUCT_BUCKET } from '@/lib/supabase/storage';
 import { STORE_SETTINGS_TAG } from './index';
 import {
   deliveryZoneSchema,
+  familySchema,
+  type FamilyInput,
   storeInfoSchema,
   SUGGESTED_ZONES,
   toFieldErrors,
@@ -245,5 +250,129 @@ export async function importSuggestedZonesAction(): Promise<SettingsResult> {
     return { ok: true, message: added ? `${added} zone${added > 1 ? 's' : ''} ajoutée${added > 1 ? 's' : ''} : vérifiez les tarifs.` : 'Ces zones existent déjà.' };
   } catch (error) {
     return failure(error, 'Les zones n’ont pas pu être ajoutées.');
+  }
+}
+
+// -----------------------------------------------------------------------------
+//  Familles olfactives
+// -----------------------------------------------------------------------------
+
+/**
+ * Une famille apparaît partout : formulaire produit (référentiels en cache),
+ * filtres et roue de la boutique, fiches produit. On invalide tout.
+ */
+function revalidateFamilies() {
+  revalidateTag(CATALOG_OPTIONS_TAG);
+  revalidateTag(SHOP_TAG);
+  revalidatePath('/', 'layout');
+}
+
+function familyFailure(error: unknown, fallback: string): SettingsResult {
+  if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+    return { ok: false, error: 'Une famille porte déjà ce nom.', fieldErrors: { name: 'Une famille porte déjà ce nom.' } };
+  }
+  return failure(error, fallback);
+}
+
+/** Crée (id null) ou renomme une famille. L'adresse (slug) est fixée à la création. */
+export async function saveFamilyAction(id: string | null, input: FamilyInput): Promise<SettingsResult> {
+  const admin = await requireAdmin();
+  const parsed = familySchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: 'Certains champs sont à corriger.', fieldErrors: toFieldErrors(parsed.error) };
+  if (id !== null && !idSchema.safeParse(id).success) return { ok: false, error: 'Famille introuvable.' };
+  const base = slugify(parsed.data.name).slice(0, 70);
+  if (!base) return { ok: false, error: 'Nom invalide.', fieldErrors: { name: 'Utilisez des lettres ou des chiffres.' } };
+
+  try {
+    await withAdmin(admin.id, async (tx) => {
+      if (id !== null) {
+        await tx.olfactoryFamily.update({ where: { id }, data: { name: parsed.data.name, hint: parsed.data.hint } });
+        return;
+      }
+      // Adresse unique : « gourmand », sinon « gourmand-2 »…
+      const taken = new Set((await tx.olfactoryFamily.findMany({ where: { slug: { startsWith: base } }, select: { slug: true } })).map((f) => f.slug));
+      let slug = base;
+      for (let n = 2; taken.has(slug); n++) slug = `${base}-${n}`;
+      const last = await tx.olfactoryFamily.aggregate({ _max: { position: true } });
+      await tx.olfactoryFamily.create({ data: { ...parsed.data, slug, position: (last._max.position ?? 0) + 1 } });
+    });
+    revalidateFamilies();
+    return { ok: true, message: id ? `Famille « ${parsed.data.name} » mise à jour.` : `Famille « ${parsed.data.name} » ajoutée : elle est déjà proposée dans les fiches produit.` };
+  } catch (error) {
+    return familyFailure(error, 'La famille n’a pas pu être enregistrée.');
+  }
+}
+
+export type QuickFamilyResult = { ok: true; family: { id: string; name: string }; created: boolean } | { ok: false; error: string };
+
+/**
+ * Ajout depuis le formulaire produit : crée la famille, ou renvoie celle qui
+ * porte déjà ce nom (sans tenir compte des majuscules ni des accents), pour la
+ * cocher aussitôt sans doublon.
+ */
+export async function createFamilyQuickAction(input: FamilyInput): Promise<QuickFamilyResult> {
+  const admin = await requireAdmin();
+  const parsed = familySchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'Nom invalide.' };
+  const base = slugify(parsed.data.name).slice(0, 70);
+  if (!base) return { ok: false, error: 'Utilisez des lettres ou des chiffres.' };
+
+  try {
+    const result = await withAdmin(admin.id, async (tx) => {
+      const existing = await tx.olfactoryFamily.findFirst({
+        where: { OR: [{ slug: base }, { name: { equals: parsed.data.name, mode: 'insensitive' } }] },
+        select: { id: true, name: true },
+      });
+      if (existing) return { family: existing, created: false };
+      const taken = new Set((await tx.olfactoryFamily.findMany({ where: { slug: { startsWith: base } }, select: { slug: true } })).map((f) => f.slug));
+      let slug = base;
+      for (let n = 2; taken.has(slug); n++) slug = `${base}-${n}`;
+      const last = await tx.olfactoryFamily.aggregate({ _max: { position: true } });
+      const family = await tx.olfactoryFamily.create({
+        data: { ...parsed.data, slug, position: (last._max.position ?? 0) + 1 },
+        select: { id: true, name: true },
+      });
+      return { family, created: true };
+    });
+    if (result.created) revalidateFamilies();
+    return { ok: true, ...result };
+  } catch (error) {
+    const failed = familyFailure(error, 'La famille n’a pas pu être ajoutée.');
+    return { ok: false, error: failed.ok ? 'La famille n’a pas pu être ajoutée.' : failed.error };
+  }
+}
+
+/** Suppression seulement si aucune création ne l'utilise (les filtres ne se vident jamais par erreur). */
+export async function deleteFamilyAction(id: string): Promise<SettingsResult> {
+  const admin = await requireAdmin();
+  if (!idSchema.safeParse(id).success) return { ok: false, error: 'Famille introuvable.' };
+  try {
+    const name = await withAdmin(admin.id, async (tx) => {
+      const family = await tx.olfactoryFamily.findUnique({ where: { id }, select: { name: true, _count: { select: { products: true } } } });
+      if (!family) throw new DomainError('Famille introuvable.');
+      const used = family._count.products;
+      if (used > 0) throw new DomainError(`Utilisée par ${used} création${used > 1 ? 's' : ''} : retirez-la d’abord de ces fiches produit.`);
+      await tx.olfactoryFamily.delete({ where: { id } });
+      return family.name;
+    });
+    revalidateFamilies();
+    return { ok: true, message: `Famille « ${name} » supprimée.` };
+  } catch (error) {
+    return failure(error, 'La famille n’a pas pu être supprimée.');
+  }
+}
+
+/** Nouvel ordre : celui de la roue, des filtres et du formulaire produit. */
+export async function reorderFamiliesAction(ids: string[]): Promise<SettingsResult> {
+  const admin = await requireAdmin();
+  if (!z.array(idSchema).max(100).safeParse(ids).success) return { ok: false, error: 'Ordre invalide.' };
+  try {
+    await withAdmin(admin.id, async (tx) => {
+      for (const [index, id] of ids.entries()) await tx.olfactoryFamily.update({ where: { id }, data: { position: index + 1 } });
+    });
+    revalidateFamilies();
+    return { ok: true, message: 'Ordre enregistré.' };
+  } catch (error) {
+    return failure(error, 'L’ordre n’a pas pu être enregistré.');
   }
 }

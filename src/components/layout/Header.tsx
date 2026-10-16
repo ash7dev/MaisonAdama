@@ -116,7 +116,7 @@ export default function Header({ whatsappHref, universCounts = {} }: HeaderProps
                 Maison Adama
               </span>
               <span className="whitespace-nowrap text-[0.5625rem] leading-none tracking-[0.3em] text-or-profond lg:text-[0.59375rem] lg:tracking-[0.32em]">
-                TCHURAYY · DAKAR
+                TCHURAYY
               </span>
             </span>
           </Link>
